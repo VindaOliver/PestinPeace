@@ -9,18 +9,15 @@ from pathlib import Path
 API_SERVER_CODE = r'''from __future__ import annotations
 
 import io
-import json
 import os
 import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-import jwt
 from azure.storage.blob import BlobServiceClient, ContentSettings
-from fastapi import FastAPI, File, Header, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from jwt import InvalidTokenError, PyJWKClient
 from PIL import Image
 from ultralytics import YOLO
 
@@ -30,38 +27,8 @@ DEFAULT_IOU = float(os.getenv("DEFAULT_IOU", "0.45"))
 DEFAULT_IMGSZ = int(os.getenv("DEFAULT_IMGSZ", "640"))
 DEFAULT_MAX_DET = int(os.getenv("DEFAULT_MAX_DET", "1000"))
 
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "")
 BLOB_CONTAINER_IMAGES = os.getenv("BLOB_CONTAINER_IMAGES", "aphid-images")
-BLOB_CONTAINER_HISTORY = os.getenv("BLOB_CONTAINER_HISTORY", "aphid-history")
-
-
-def _parse_csv_set(raw: str) -> set[str]:
-    return {item.strip() for item in raw.split(",") if item.strip()}
-
-
-ENTRA_TENANT_ID = os.getenv("ENTRA_TENANT_ID", "").strip()
-ENTRA_CLIENT_ID = os.getenv("ENTRA_CLIENT_ID", "").strip()
-ENTRA_AUDIENCE = os.getenv("ENTRA_AUDIENCE", "").strip()
-ENTRA_ALLOWED_GROUP_IDS = _parse_csv_set(os.getenv("ENTRA_ALLOWED_GROUP_IDS", ""))
-ENTRA_ALLOWED_USER_OBJECT_IDS = _parse_csv_set(os.getenv("ENTRA_ALLOWED_USER_OBJECT_IDS", ""))
-ENTRA_ALLOWED_ROLES = _parse_csv_set(os.getenv("ENTRA_ALLOWED_ROLES", ""))
-ENTRA_ENABLED = bool(ENTRA_TENANT_ID and ENTRA_CLIENT_ID)
-ENTRA_ADMIN_POLICY_CONFIGURED = bool(
-    ENTRA_ALLOWED_GROUP_IDS or ENTRA_ALLOWED_USER_OBJECT_IDS or ENTRA_ALLOWED_ROLES
-)
-
-if ENTRA_ENABLED:
-    ENTRA_ISSUER = f"https://login.microsoftonline.com/{ENTRA_TENANT_ID}/v2.0"
-    ENTRA_AUDIENCES: list[str] = [ENTRA_CLIENT_ID, f"api://{ENTRA_CLIENT_ID}"]
-    ENTRA_AUDIENCES.extend([x.strip() for x in ENTRA_AUDIENCE.split(",") if x.strip()])
-    ENTRA_JWKS_URI = f"https://login.microsoftonline.com/{ENTRA_TENANT_ID}/discovery/v2.0/keys"
-    ENTRA_JWKS_CLIENT: PyJWKClient | None = PyJWKClient(ENTRA_JWKS_URI)
-else:
-    ENTRA_ISSUER = ""
-    ENTRA_AUDIENCES = []
-    ENTRA_JWKS_URI = ""
-    ENTRA_JWKS_CLIENT = None
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
@@ -85,19 +52,10 @@ if BLOB_CONNECTION_STRING:
     except Exception:
         pass
     try:
-        blob_service.get_container_client(BLOB_CONTAINER_HISTORY).create_container()
-    except Exception:
-        pass
-    try:
         blob_service.get_container_client(BLOB_CONTAINER_IMAGES).get_container_properties()
-        blob_service.get_container_client(BLOB_CONTAINER_HISTORY).get_container_properties()
     except Exception as exc:
         blob_init_error = str(exc)
         blob_service = None
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _utc_stamp() -> str:
@@ -107,77 +65,6 @@ def _utc_stamp() -> str:
 def _safe_filename(name: str) -> str:
     cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "_", name.strip())
     return cleaned or "image.jpg"
-
-
-def _extract_bearer_token(authorization: str | None) -> str:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header.")
-    parts = authorization.strip().split(" ", 1)
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Authorization must be Bearer token.")
-    return parts[1].strip()
-
-
-def _decode_entra_access_token(token: str) -> dict[str, Any]:
-    if not ENTRA_ENABLED or ENTRA_JWKS_CLIENT is None:
-        raise HTTPException(status_code=503, detail="Entra authentication is not configured.")
-
-    try:
-        signing_key = ENTRA_JWKS_CLIENT.get_signing_key_from_jwt(token)
-        payload = jwt.decode(
-            token,
-            key=signing_key.key,
-            algorithms=["RS256"],
-            audience=ENTRA_AUDIENCES,
-            issuer=ENTRA_ISSUER,
-        )
-        return payload
-    except InvalidTokenError as exc:
-        raise HTTPException(status_code=403, detail=f"Invalid bearer token: {exc}") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=403, detail=f"Token validation failed: {exc}") from exc
-
-
-def _is_entra_admin(payload: dict[str, Any]) -> bool:
-    if not ENTRA_ADMIN_POLICY_CONFIGURED:
-        return False
-
-    oid = str(payload.get("oid", "")).strip()
-    if oid and oid in ENTRA_ALLOWED_USER_OBJECT_IDS:
-        return True
-
-    roles = payload.get("roles")
-    if isinstance(roles, list):
-        role_values = {str(x) for x in roles}
-        if role_values & ENTRA_ALLOWED_ROLES:
-            return True
-
-    groups = payload.get("groups")
-    if isinstance(groups, list):
-        group_values = {str(x) for x in groups}
-        if group_values & ENTRA_ALLOWED_GROUP_IDS:
-            return True
-
-    return False
-
-
-def _require_admin(x_admin_token: str | None, authorization: str | None) -> None:
-    if ENTRA_ENABLED:
-        if not ENTRA_ADMIN_POLICY_CONFIGURED:
-            raise HTTPException(
-                status_code=503,
-                detail="Entra admin allow list is not configured.",
-            )
-        token = _extract_bearer_token(authorization)
-        payload = _decode_entra_access_token(token)
-        if not _is_entra_admin(payload):
-            raise HTTPException(status_code=403, detail="Forbidden.")
-        return
-
-    if not ADMIN_TOKEN:
-        raise HTTPException(status_code=503, detail="ADMIN_TOKEN is not configured.")
-    if x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(status_code=403, detail="Forbidden.")
 
 
 def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
@@ -192,30 +79,13 @@ def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
     return blob_client.url
 
 
-def _upload_history_json(blob_name: str, payload: dict[str, Any]) -> str:
-    if blob_service is None:
-        raise RuntimeError("Blob service is not configured.")
-    blob_client = blob_service.get_blob_client(container=BLOB_CONTAINER_HISTORY, blob=blob_name)
-    blob_client.upload_blob(
-        json.dumps(payload, ensure_ascii=True).encode("utf-8"),
-        overwrite=True,
-        content_settings=ContentSettings(content_type="application/json"),
-    )
-    return blob_client.url
-
-
 @app.get("/health")
 def health() -> dict[str, Any]:
-    auth_mode = "entra" if ENTRA_ENABLED else ("token" if bool(ADMIN_TOKEN) else "disabled")
     return {
         "status": "ok",
         "model_path": MODEL_PATH,
         "blob_enabled": blob_service is not None,
         "blob_init_error": blob_init_error or None,
-        "admin_enabled": bool(ADMIN_TOKEN) or ENTRA_ENABLED,
-        "auth_mode": auth_mode,
-        "entra_enabled": ENTRA_ENABLED,
-        "entra_admin_policy_configured": ENTRA_ADMIN_POLICY_CONFIGURED,
     }
 
 
@@ -272,32 +142,11 @@ async def predict(
     request_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:10]}"
     safe_name = _safe_filename(image.filename)
     image_blob_name = f"{request_id}_{safe_name}"
-    history_blob_name = f"{request_id}.json"
-
-    record = {
-        "request_id": request_id,
-        "timestamp_utc": _utc_now_iso(),
-        "filename": image.filename,
-        "count": len(detections),
-        "detections": detections,
-        "params": {
-            "conf": float(conf),
-            "iou": float(iou),
-            "imgsz": int(imgsz),
-            "max_det": int(max_det),
-        },
-        "model_path": MODEL_PATH,
-    }
-
     storage_error = None
+    image_url = None
     if blob_service is not None:
         try:
             image_url = _upload_image_to_blob(image_blob_name, raw, image.content_type or "image/jpeg")
-            record["image_blob_name"] = image_blob_name
-            record["image_blob_url"] = image_url
-            history_url = _upload_history_json(history_blob_name, record)
-            record["history_blob_name"] = history_blob_name
-            record["history_blob_url"] = history_url
         except Exception as exc:
             storage_error = str(exc)
     else:
@@ -310,37 +159,12 @@ async def predict(
         "detections": detections,
         "blob_saved": storage_error is None,
     }
+    if image_url:
+        response["image_blob_name"] = image_blob_name
+        response["image_blob_url"] = image_url
     if storage_error:
         response["storage_error"] = storage_error
     return response
-
-
-@app.get("/admin/history")
-def admin_history(
-    limit: int = Query(default=50, ge=1, le=200),
-    authorization: str | None = Header(default=None, alias="Authorization"),
-    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
-) -> dict[str, Any]:
-    _require_admin(x_admin_token, authorization)
-    if blob_service is None:
-        raise HTTPException(status_code=503, detail="Blob storage is not configured.")
-
-    container = blob_service.get_container_client(BLOB_CONTAINER_HISTORY)
-    blobs = sorted(container.list_blobs(), key=lambda b: b.name, reverse=True)
-
-    records: list[dict[str, Any]] = []
-    for blob in blobs[:limit]:
-        try:
-            payload = container.download_blob(blob.name).readall()
-            records.append(json.loads(payload.decode("utf-8")))
-        except Exception:
-            records.append({"history_blob_name": blob.name, "error": "Failed to parse record."})
-
-    return {
-        "count": len(records),
-        "limit": limit,
-        "records": records,
-    }
 '''
 
 
@@ -374,7 +198,6 @@ python-multipart==0.0.20
 pillow==11.0.0
 ultralytics==8.3.50
 azure-storage-blob==12.24.0
-PyJWT==2.10.1
 """
 
 

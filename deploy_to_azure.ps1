@@ -13,14 +13,6 @@ param(
     [int]$MaxReplicas = 3,
     [string]$BlobConnectionString = "",
     [string]$BlobImageContainer = "aphid-images",
-    [string]$BlobHistoryContainer = "aphid-history",
-    [string]$AdminToken = "",
-    [string]$EntraTenantId = "",
-    [string]$EntraClientId = "",
-    [string]$EntraAudience = "",
-    [string]$EntraAllowedGroupIds = "",
-    [string]$EntraAllowedUserObjectIds = "",
-    [string]$EntraAllowedRoles = "",
     [switch]$UseLocalDockerBuild,
     [switch]$SkipAcrBuild
 )
@@ -104,8 +96,6 @@ Write-Host "  ContainerAppName: $ContainerAppName"
 Write-Host "  ImageName:        $ImageName"
 Write-Host "  ContextDir:       $ContextDir"
 Write-Host "  BlobEnabled:      $([bool]$BlobConnectionString)"
-Write-Host "  AdminEnabled:     $([bool]$AdminToken)"
-Write-Host "  EntraEnabled:     $([bool]($EntraTenantId -and $EntraClientId))"
 
 Invoke-Az "group create -n $ResourceGroup -l $Location --only-show-errors"
 Invoke-Az "provider register --namespace Microsoft.ContainerRegistry --wait --only-show-errors"
@@ -153,35 +143,12 @@ if (-not $acrUser -or -not $acrPass) {
 
 $envVars = @(
     "MODEL_PATH=/app/model/best.pt",
-    "BLOB_CONTAINER_IMAGES=$BlobImageContainer",
-    "BLOB_CONTAINER_HISTORY=$BlobHistoryContainer"
+    "BLOB_CONTAINER_IMAGES=$BlobImageContainer"
 )
 $secretPairs = @()
 if ($BlobConnectionString) {
     $secretPairs += "blob-conn='$BlobConnectionString'"
     $envVars += "BLOB_CONNECTION_STRING=secretref:blob-conn"
-}
-if ($AdminToken) {
-    $secretPairs += "admin-token='$AdminToken'"
-    $envVars += "ADMIN_TOKEN=secretref:admin-token"
-}
-if ($EntraTenantId) {
-    $envVars += "ENTRA_TENANT_ID=$EntraTenantId"
-}
-if ($EntraClientId) {
-    $envVars += "ENTRA_CLIENT_ID=$EntraClientId"
-}
-if ($EntraAudience) {
-    $envVars += "ENTRA_AUDIENCE=$EntraAudience"
-}
-if ($EntraAllowedGroupIds) {
-    $envVars += "ENTRA_ALLOWED_GROUP_IDS=$EntraAllowedGroupIds"
-}
-if ($EntraAllowedUserObjectIds) {
-    $envVars += "ENTRA_ALLOWED_USER_OBJECT_IDS=$EntraAllowedUserObjectIds"
-}
-if ($EntraAllowedRoles) {
-    $envVars += "ENTRA_ALLOWED_ROLES=$EntraAllowedRoles"
 }
 $envVarsArg = ($envVars -join " ")
 $secretArg = ""

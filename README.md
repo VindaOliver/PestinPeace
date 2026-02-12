@@ -1,205 +1,78 @@
-﻿# PestinPeace
+# PestinPeace Inference Service
 
-PestinPeace is an aphid detection and counting project using a YOLO model, deployed on Azure Container Apps.
+This repository provides a YOLO-based aphid detection API deployed on Azure Container Apps.
 
-Current repository: `https://github.com/VindaOliver/PestinPeace`
+## Current API
 
-## 1. Current Status
-
-This repository now supports:
-
-- Cloud inference API on Azure Container App
-- Image + history storage to Azure Blob
-- Admin history access with Entra login (recommended)
-- Local web clients for prediction and admin review
-- GitHub Actions pipeline: build -> push to ACR -> update Container App
-
-## 2. Architecture
-
-- Inference container (FastAPI + Ultralytics YOLO)
-- Azure Blob Storage:
-  - image container for uploaded images
-  - history container for JSON records
-- Azure Container App endpoint
-- Local clients:
-  - `local_web_client.html` for prediction
-  - `admin_history_entra.html` for admin history
-
-## 3. API Endpoints
-
-Base URL (current deployment):
+Base URL:
 
 `https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io`
 
-### `GET /health`
+Endpoints:
 
-Returns runtime status and auth mode.
+- `GET /health`
+- `POST /predict`
 
-### `POST /predict`
+There is no admin endpoint and no history API in the current version.
 
-- `multipart/form-data`
-- required file field: `image`
-- optional query params: `conf`, `iou`, `imgsz`, `max_det`
+## Predict Request
 
-Response includes:
+`POST /predict` uses `multipart/form-data`:
 
-- `request_id`
-- `count`
-- `detections`
-- `blob_saved`
+- field: `image` (required)
+- query params (optional):
+  - `conf` (default `0.25`)
+  - `iou` (default `0.45`)
+  - `imgsz` (default `640`)
+  - `max_det` (default `1000`)
 
-### `GET /admin/history`
+Example:
 
-Admin-only endpoint.
-
-Auth behavior:
-
-- Entra mode enabled: requires `Authorization: Bearer <token>`
-- Fallback token mode: `X-Admin-Token` (only if Entra is not enabled)
-
-## 4. Auth (Current)
-
-Current deployment is configured for Entra admin authentication.
-
-Container app env vars used by auth:
-
-- `ENTRA_TENANT_ID`
-- `ENTRA_CLIENT_ID`
-- `ENTRA_AUDIENCE` (optional)
-- `ENTRA_ALLOWED_GROUP_IDS` (optional)
-- `ENTRA_ALLOWED_USER_OBJECT_IDS` (optional)
-- `ENTRA_ALLOWED_ROLES` (optional)
-
-## 5. Local Clients
-
-## 5.1 Prediction page
-
-- file: `local_web_client.html`
-- run local static host:
-
-```powershell
-python -m http.server 18090 --bind 127.0.0.1
+```bash
+curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
+  -F "image=@test.jpg"
 ```
 
-- open:
+## Blob Storage Behavior
+
+If Blob is configured, each `/predict` call uploads the input image to:
+
+- container: `aphid-images`
+
+No history JSON is written by the API.
+
+## Local Web Client
+
+Start a static server from repo root:
+
+```bash
+python -m http.server 18090
+```
+
+Open:
 
 `http://127.0.0.1:18090/local_web_client.html`
 
-## 5.2 Admin Entra page
+## Deploy New Model (GitHub Actions + ACR)
 
-- file: `admin_history_entra.html`
-- open:
+1. Replace model file:
+   - `.container_yolo26/model/best.pt`
+2. (Optional) Regenerate container context:
+   - `python package_yolo26_container.py --no-build`
+3. Commit and push to `main`:
+   - `git add .container_yolo26`
+   - `git commit -m "Update model"`
+   - `git push origin main`
 
-`http://127.0.0.1:18090/admin_history_entra.html`
+Push to `main` triggers workflow:
 
-Fill:
+- Docker build
+- Push image to ACR
+- Update Azure Container App image
 
-- API base URL
-- Tenant ID
-- Client ID (SPA app)
-- Scope (optional; can be blank for idToken mode)
+## Key Files
 
-Then:
-
-- click `Sign In`
-- click `Load History`
-
-## 6. Deployment Scripts
-
-### 6.1 Build context
-
-```powershell
-python package_yolo26_container.py --no-build
-```
-
-### 6.2 Deploy to Azure
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy_to_azure.ps1 \
-  -ResourceGroup rg-aphid-yolo-se \
-  -Location swedencentral \
-  -RegistryName acraphidyolo2498 \
-  -ContainerEnvName aca-env-aphid-yolo \
-  -ContainerAppName aca-aphid-yolo \
-  -ImageName aphid-yolo26:vNEXT \
-  -BlobConnectionString "<AZURE_STORAGE_CONNECTION_STRING>" \
-  -BlobImageContainer aphid-images \
-  -BlobHistoryContainer aphid-history \
-  -EntraTenantId "<TENANT_ID>" \
-  -EntraClientId "<CLIENT_ID>" \
-  -EntraAllowedUserObjectIds "<USER_OBJECT_ID>" \
-  -UseLocalDockerBuild
-```
-
-## 7. GitHub Actions CI/CD
-
-Workflow:
-
-- `.github/workflows/deploy_containerapp.yml`
-
-On push to `main`, it will:
-
-1. build Docker image from `.container_yolo26`
-2. push to ACR
-3. update Container App image
-4. run `/health` check
-
-Setup guide:
-
-- `GITHUB_ACTIONS_SETUP.md`
-
-## 8. Updating to a Better Model
-
-Recommended process:
-
-1. replace model and regenerate context:
-
-```powershell
-python package_yolo26_container.py --no-build
-```
-
-2. commit and push to `main`
-3. GitHub Actions deploys automatically
-4. validate `/health` and sample `/predict`
-
-## 9. Repository Scope
-
-This repository is intentionally deployment-focused.
-
-Not included in git:
-
-- training datasets (`data/`)
-- training outputs (`runs/`)
-- local training scripts and local pretrained file (ignored for cleaner collaboration)
-
-## 10. Troubleshooting
-
-### `msal is not defined`
-
-`admin_history_entra.html` now tries multiple script sources and local fallback (`./vendor/msal-browser.min.js`).
-
-### `AADSTS9002326`
-
-Entra app must use `spa.redirectUris` for browser login, not `web.redirectUris`.
-
-### `blob_saved=false`
-
-Check:
-
-- `BLOB_CONNECTION_STRING`
-- `BLOB_CONTAINER_IMAGES`
-- `BLOB_CONTAINER_HISTORY`
-
-### Port occupied locally
-
-Use another port:
-
-```powershell
-python -m http.server 18888 --bind 127.0.0.1
-```
-
-## 11. Security Notes
-
-- Do not commit secrets.
-- Use Entra + OIDC for production flows.
-- Rotate any previously exposed tokens/keys.
+- `.container_yolo26/server.py`: runtime API server
+- `.container_yolo26/model/best.pt`: deployed model
+- `.github/workflows/deploy_containerapp.yml`: CI/CD pipeline
+- `package_yolo26_container.py`: generates `.container_yolo26` context

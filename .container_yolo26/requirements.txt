@@ -4,4 +4,3 @@ python-multipart==0.0.20
 pillow==11.0.0
 ultralytics==8.3.50
 azure-storage-blob==12.24.0
-PyJWT==2.10.1
