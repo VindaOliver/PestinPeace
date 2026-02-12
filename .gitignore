@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Notebook and local temp
+.ipynb_checkpoints/
+*.ipynb
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Training datasets and outputs
+data/
+runs/
+train_yolo26.py
+continue_train_yolo26.py
+data.yaml
+yolo26n.pt
+
+# Local runtime outputs
+*.log
+*.tmp
+
+# Optional local-only secrets
+.env
+.env.*

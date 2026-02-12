@@ -1,0 +1,95 @@
+name: Build Push Deploy (Container App)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: ${{ vars.ACR_NAME }}
+  RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+  CONTAINER_APP_NAME: ${{ vars.CONTAINER_APP_NAME }}
+  IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Validate repository variables
+        shell: bash
+        run: |
+          for v in ACR_NAME RESOURCE_GROUP CONTAINER_APP_NAME; do
+            if [ -z "${!v}" ]; then
+              echo "Missing GitHub repository variable: $v"
+              exit 1
+            fi
+          done
+
+      - name: Validate docker context files
+        shell: bash
+        run: |
+          test -f .container_yolo26/Dockerfile
+          test -f .container_yolo26/requirements.txt
+          test -f .container_yolo26/server.py
+          test -f .container_yolo26/model/best.pt
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push image to ACR
+        shell: bash
+        run: |
+          az acr login --name "$ACR_NAME"
+          IMAGE_TAG="${GITHUB_SHA::12}"
+          IMAGE_REPO_VALUE="${IMAGE_REPO:-aphid-yolo26}"
+          IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_REPO_VALUE}:${IMAGE_TAG}"
+          IMAGE_LATEST="${ACR_NAME}.azurecr.io/${IMAGE_REPO_VALUE}:latest"
+
+          docker build --platform linux/amd64 -t "$IMAGE" -t "$IMAGE_LATEST" .container_yolo26
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy image to Azure Container App
+        shell: bash
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CONTAINER_APP_NAME" \
+            --image "$IMAGE" \
+            --only-show-errors
+
+          FQDN="$(az containerapp show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CONTAINER_APP_NAME" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)"
+          echo "FQDN=$FQDN" >> "$GITHUB_ENV"
+
+      - name: Health check
+        shell: bash
+        run: |
+          curl -f "https://${FQDN}/health"
+
+      - name: Summary
+        shell: bash
+        run: |
+          echo "Deployed image: $IMAGE"
+          echo "App URL: https://${FQDN}"
