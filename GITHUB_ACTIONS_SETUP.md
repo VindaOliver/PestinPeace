@@ -26,15 +26,17 @@ Optional (workflow has built-in defaults):
 - `CONTAINER_APP_NAME` (default: `aca-aphid-yolo`)
 - `IMAGE_REPO` (default: `aphid-yolo26`)
 
-## 2. Required GitHub Secrets (OIDC)
+## 2. Azure Login IDs for OIDC
 
-GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Secrets`
+GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`
 
-Required:
+The workflow now has built-in defaults for:
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
+
+So these are optional. Best practice is still to set them explicitly as repository variables.
 
 ## 3. Azure Side OIDC Setup
 
@@ -92,7 +94,7 @@ After workflow succeeds, verify:
 
 ## 8. Common Failures
 
-- missing repo variable/secret -> workflow fails early
+- wrong Azure login IDs (client/tenant/subscription) -> `azure/login` fails
 - no `AcrPush` role -> push to ACR denied
 - no `Contributor` on RG -> `az containerapp update` denied
 - model file missing in `.container_yolo26/model/best.pt` -> workflow validation fails

@@ -39,20 +39,6 @@ jobs:
           echo "CONTAINER_APP_NAME=$CONTAINER_APP_NAME_VALUE" >> "$GITHUB_ENV"
           echo "IMAGE_REPO=$IMAGE_REPO_VALUE" >> "$GITHUB_ENV"
 
-      - name: Validate Azure secrets
-        shell: bash
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: |
-          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
-            if [ -z "${!v}" ]; then
-              echo "Missing GitHub secret: $v"
-              exit 1
-            fi
-          done
-
       - name: Validate docker context files
         shell: bash
         run: |
@@ -64,9 +50,9 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID || '411ad807-be68-4d9c-bbe2-d99cfc655c4d' }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID || '1faf88fe-a998-4c5b-93c9-210a11d9a5c2' }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || '12190bf7-b4d8-4dfa-9a63-01580c6ad868' }}
 
       - name: Build and push image to ACR
         shell: bash
