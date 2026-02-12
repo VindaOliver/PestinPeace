@@ -1,76 +1,101 @@
-# GitHub Actions -> ACR -> Azure Container App
+﻿# GitHub Actions -> ACR -> Azure Container Apps (PestinPeace)
 
-This repository includes a workflow at:
+Repository:
+
+- `https://github.com/VindaOliver/PestinPeace`
+
+Workflow file:
 
 - `.github/workflows/deploy_containerapp.yml`
 
-It does the following on every `push` to `main`:
+Pipeline behavior on push to `main`:
 
-1. Build Docker image from `.container_yolo26`
-2. Push image to ACR
-3. Update Azure Container App to new image
-4. Call `/health` for verification
+1. build Docker image from `.container_yolo26`
+2. push image to ACR
+3. update Azure Container App image
+4. call `/health` to verify deployment
 
-## 1) Prerequisites
+## 1. Required GitHub Variables
 
-- Azure Container App already exists
-- Azure Container Registry (ACR) already exists
-- `.container_yolo26/model/best.pt` exists in repo (or Git LFS)
+GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`
 
-## 2) Configure GitHub Repository Variables
+Required:
 
-In GitHub repo -> `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`, add:
+- `ACR_NAME` (current: `acraphidyolo2498`)
+- `RESOURCE_GROUP` (current: `rg-aphid-yolo-se`)
+- `CONTAINER_APP_NAME` (current: `aca-aphid-yolo`)
 
-- `ACR_NAME` (example: `acraphidyolo2498`)
-- `RESOURCE_GROUP` (example: `rg-aphid-yolo-se`)
-- `CONTAINER_APP_NAME` (example: `aca-aphid-yolo`)
-- `IMAGE_REPO` (optional, default: `aphid-yolo26`)
+Optional:
 
-## 3) Configure GitHub Repository Secrets (OIDC mode)
+- `IMAGE_REPO` (default: `aphid-yolo26`)
 
-Add these secrets:
+## 2. Required GitHub Secrets (OIDC)
+
+GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Secrets`
+
+Required:
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 
-These come from an Entra app/service principal configured for GitHub OIDC.
+## 3. Azure Side OIDC Setup
 
-## 4) Azure Role Assignments for the OIDC Principal
+Create an Entra app (or reuse one) for GitHub Actions login.
 
-Assign roles to the service principal:
+Then add a federated credential:
+
+- issuer: `https://token.actions.githubusercontent.com`
+- subject: `repo:VindaOliver/PestinPeace:ref:refs/heads/main`
+- audience: `api://AzureADTokenExchange`
+
+## 4. Required Azure Role Assignments
+
+Assign to the OIDC service principal:
 
 - `AcrPush` on ACR scope
-- `Contributor` on the Container App resource group
+- `Contributor` on resource group scope
 
-You may replace `Contributor` with a narrower custom role if desired.
+Example commands:
 
-## 5) Create Federated Credential (GitHub OIDC)
+```powershell
+$AZ = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
+$SUB = "12190bf7-b4d8-4dfa-9a63-01580c6ad868"
+$SP_OBJECT_ID = "<OIDC_SERVICE_PRINCIPAL_OBJECT_ID>"
 
-In Entra App -> `Federated credentials`, create one for your repository:
+& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role AcrPush --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-se/providers/Microsoft.ContainerRegistry/registries/acraphidyolo2498"
 
-- Issuer: `https://token.actions.githubusercontent.com`
-- Subject example: `repo:<owner>/<repo>:ref:refs/heads/main`
-- Audience: `api://AzureADTokenExchange`
+& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role Contributor --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-se"
+```
 
-## 6) Model Update Workflow
+## 5. Deployment Trigger
 
-When a better model is available:
+- auto: push to `main`
+- manual: GitHub -> `Actions` -> `Build Push Deploy (Container App)` -> `Run workflow`
 
-1. Regenerate container context locally:
-   - `python package_yolo26_container.py --no-build`
-2. Commit updated files (especially `.container_yolo26/model/best.pt`)
-3. Push to `main`
-4. GitHub Actions deploys automatically
+## 6. Updating Model
 
-## 7) Manual Trigger
+Recommended:
 
-You can also run workflow manually:
+1. regenerate container context:
 
-- GitHub -> `Actions` -> `Build Push Deploy (Container App)` -> `Run workflow`
+```powershell
+python package_yolo26_container.py --no-build
+```
 
-## 8) Notes
+2. commit `.container_yolo26/model/best.pt` and related files
+3. push to `main`
+4. wait for Actions to finish
 
-- If model file is large, use Git LFS.
-- If `/health` step fails, inspect workflow logs and Azure Container App logs.
-- Workflow always deploys a SHA-tag image and also updates `latest`.
+## 7. Validation
+
+After workflow succeeds, verify:
+
+- `https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/health`
+
+## 8. Common Failures
+
+- missing repo variable/secret -> workflow fails early
+- no `AcrPush` role -> push to ACR denied
+- no `Contributor` on RG -> `az containerapp update` denied
+- model file missing in `.container_yolo26/model/best.pt` -> workflow validation fails
