@@ -26,12 +26,29 @@ jobs:
         with:
           lfs: true
 
-      - name: Validate repository variables
+      - name: Resolve deployment variables
         shell: bash
         run: |
-          for v in ACR_NAME RESOURCE_GROUP CONTAINER_APP_NAME; do
+          ACR_NAME_VALUE="${ACR_NAME:-acraphidyolo2498}"
+          RESOURCE_GROUP_VALUE="${RESOURCE_GROUP:-rg-aphid-yolo-se}"
+          CONTAINER_APP_NAME_VALUE="${CONTAINER_APP_NAME:-aca-aphid-yolo}"
+          IMAGE_REPO_VALUE="${IMAGE_REPO:-aphid-yolo26}"
+
+          echo "ACR_NAME=$ACR_NAME_VALUE" >> "$GITHUB_ENV"
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP_VALUE" >> "$GITHUB_ENV"
+          echo "CONTAINER_APP_NAME=$CONTAINER_APP_NAME_VALUE" >> "$GITHUB_ENV"
+          echo "IMAGE_REPO=$IMAGE_REPO_VALUE" >> "$GITHUB_ENV"
+
+      - name: Validate Azure secrets
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          for v in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
             if [ -z "${!v}" ]; then
-              echo "Missing GitHub repository variable: $v"
+              echo "Missing GitHub secret: $v"
               exit 1
             fi
           done
@@ -56,9 +73,8 @@ jobs:
         run: |
           az acr login --name "$ACR_NAME"
           IMAGE_TAG="${GITHUB_SHA::12}"
-          IMAGE_REPO_VALUE="${IMAGE_REPO:-aphid-yolo26}"
-          IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_REPO_VALUE}:${IMAGE_TAG}"
-          IMAGE_LATEST="${ACR_NAME}.azurecr.io/${IMAGE_REPO_VALUE}:latest"
+          IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_REPO}:${IMAGE_TAG}"
+          IMAGE_LATEST="${ACR_NAME}.azurecr.io/${IMAGE_REPO}:latest"
 
           docker build --platform linux/amd64 -t "$IMAGE" -t "$IMAGE_LATEST" .container_yolo26
           docker push "$IMAGE"

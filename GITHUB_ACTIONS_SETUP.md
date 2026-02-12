@@ -19,14 +19,11 @@ Pipeline behavior on push to `main`:
 
 GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`
 
-Required:
+Optional (workflow has built-in defaults):
 
-- `ACR_NAME` (current: `acraphidyolo2498`)
-- `RESOURCE_GROUP` (current: `rg-aphid-yolo-se`)
-- `CONTAINER_APP_NAME` (current: `aca-aphid-yolo`)
-
-Optional:
-
+- `ACR_NAME` (default: `acraphidyolo2498`)
+- `RESOURCE_GROUP` (default: `rg-aphid-yolo-se`)
+- `CONTAINER_APP_NAME` (default: `aca-aphid-yolo`)
 - `IMAGE_REPO` (default: `aphid-yolo26`)
 
 ## 2. Required GitHub Secrets (OIDC)
