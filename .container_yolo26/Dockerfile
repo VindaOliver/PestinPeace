@@ -7,6 +7,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY server.py /app/server.py
+COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY model/best.pt /app/model/best.pt
 
 EXPOSE 8000

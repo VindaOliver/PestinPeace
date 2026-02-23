@@ -6,184 +6,23 @@ import subprocess
 from pathlib import Path
 
 
-API_SERVER_CODE = r'''from __future__ import annotations
-
-import io
-import os
-import re
-import uuid
-from datetime import datetime, timezone
-from typing import Any
-
-from azure.storage.blob import BlobServiceClient, ContentSettings
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image
-from ultralytics import YOLO
-
-MODEL_PATH = os.getenv("MODEL_PATH", "/app/model/best.pt")
-DEFAULT_CONF = float(os.getenv("DEFAULT_CONF", "0.25"))
-DEFAULT_IOU = float(os.getenv("DEFAULT_IOU", "0.45"))
-DEFAULT_IMGSZ = int(os.getenv("DEFAULT_IMGSZ", "640"))
-DEFAULT_MAX_DET = int(os.getenv("DEFAULT_MAX_DET", "1000"))
-
-BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "")
-BLOB_CONTAINER_IMAGES = os.getenv("BLOB_CONTAINER_IMAGES", "aphid-images")
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
-
-model = YOLO(MODEL_PATH)
-app = FastAPI(title="Aphid YOLO26 Inference API", version="1.2.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=False,
-)
-
-blob_service: BlobServiceClient | None = None
-blob_init_error = ""
-if BLOB_CONNECTION_STRING:
-    try:
-        blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
-        blob_service.get_container_client(BLOB_CONTAINER_IMAGES).create_container()
-    except Exception:
-        pass
-    try:
-        blob_service.get_container_client(BLOB_CONTAINER_IMAGES).get_container_properties()
-    except Exception as exc:
-        blob_init_error = str(exc)
-        blob_service = None
-
-
-def _utc_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-
-
-def _safe_filename(name: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "_", name.strip())
-    return cleaned or "image.jpg"
-
-
-def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
-    if blob_service is None:
-        raise RuntimeError("Blob service is not configured.")
-    blob_client = blob_service.get_blob_client(container=BLOB_CONTAINER_IMAGES, blob=blob_name)
-    blob_client.upload_blob(
-        raw,
-        overwrite=True,
-        content_settings=ContentSettings(content_type=content_type or "application/octet-stream"),
-    )
-    return blob_client.url
-
-
-@app.get("/health")
-def health() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "model_path": MODEL_PATH,
-        "blob_enabled": blob_service is not None,
-        "blob_init_error": blob_init_error or None,
-    }
-
-
-@app.post("/predict")
-async def predict(
-    image: UploadFile = File(...),
-    conf: float = DEFAULT_CONF,
-    iou: float = DEFAULT_IOU,
-    imgsz: int = DEFAULT_IMGSZ,
-    max_det: int = DEFAULT_MAX_DET,
-) -> dict[str, Any]:
-    if not image.filename:
-        raise HTTPException(status_code=400, detail="Missing image filename.")
-
-    raw = await image.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty image.")
-
-    try:
-        pil_img = Image.open(io.BytesIO(raw)).convert("RGB")
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid image: {exc}") from exc
-
-    results = model.predict(
-        source=pil_img,
-        conf=float(conf),
-        iou=float(iou),
-        imgsz=int(imgsz),
-        max_det=int(max_det),
-        device="cpu",
-        verbose=False,
-    )
-
-    r0 = results[0]
-    boxes = r0.boxes
-    names = r0.names
-    detections: list[dict[str, Any]] = []
-
-    if boxes is not None:
-        xyxy = boxes.xyxy.detach().cpu().tolist() if boxes.xyxy is not None else []
-        confs = boxes.conf.detach().cpu().tolist() if boxes.conf is not None else []
-        clss = boxes.cls.detach().cpu().tolist() if boxes.cls is not None else []
-        for i in range(len(xyxy)):
-            cls_id = int(clss[i]) if i < len(clss) else -1
-            detections.append(
-                {
-                    "class_id": cls_id,
-                    "class_name": names.get(cls_id, str(cls_id)),
-                    "confidence": float(confs[i]) if i < len(confs) else None,
-                    "bbox_xyxy": [float(v) for v in xyxy[i]],
-                }
-            )
-
-    request_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:10]}"
-    safe_name = _safe_filename(image.filename)
-    image_blob_name = f"{request_id}_{safe_name}"
-    storage_error = None
-    image_url = None
-    if blob_service is not None:
-        try:
-            image_url = _upload_image_to_blob(image_blob_name, raw, image.content_type or "image/jpeg")
-        except Exception as exc:
-            storage_error = str(exc)
-    else:
-        storage_error = "Blob storage is not configured."
-
-    response = {
-        "request_id": request_id,
-        "filename": image.filename,
-        "count": len(detections),
-        "detections": detections,
-        "blob_saved": storage_error is None,
-    }
-    if image_url:
-        response["image_blob_name"] = image_blob_name
-        response["image_blob_url"] = image_url
-    if storage_error:
-        response["storage_error"] = storage_error
-    return response
-'''
-
-
 DOCKERFILE_CODE = """FROM python:3.11-slim
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libxcb1 \
-    libgl1 \
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    libglib2.0-0 \\
+    libsm6 \\
+    libxext6 \\
+    libxrender1 \\
+    libxcb1 \\
+    libgl1 \\
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY server.py /app/server.py
+COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY model/best.pt /app/model/best.pt
 
 EXPOSE 8000
@@ -198,12 +37,13 @@ python-multipart==0.0.20
 pillow==11.0.0
 ultralytics==8.3.50
 azure-storage-blob==12.24.0
+azure-data-tables==12.5.0
 """
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create Docker context for YOLO26 inference and optionally build image.",
+        description="Create Docker context for YOLO26 inference (with IoT telemetry) and optionally build image.",
     )
     parser.add_argument(
         "--model",
@@ -214,6 +54,16 @@ def parse_args() -> argparse.Namespace:
         "--context-dir",
         default=".container_yolo26",
         help="Output directory for Docker build context.",
+    )
+    parser.add_argument(
+        "--server-template",
+        default=".container_yolo26/server.py",
+        help="Template server.py path to copy into build context.",
+    )
+    parser.add_argument(
+        "--telemetry-dashboard-template",
+        default=".container_yolo26/telemetry_dashboard.html",
+        help="Template telemetry dashboard HTML path to copy into build context.",
     )
     parser.add_argument(
         "--image-tag",
@@ -236,7 +86,7 @@ def parse_args() -> argparse.Namespace:
 
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="ascii")
+    path.write_text(text, encoding="utf-8")
 
 
 def _resolve_model_path(model_path: Path) -> Path:
@@ -250,15 +100,35 @@ def _resolve_model_path(model_path: Path) -> Path:
     raise FileNotFoundError(f"Model not found: {model_path}")
 
 
+def _resolve_template_path(path_str: str, script_dir: Path) -> Path:
+    p = Path(path_str)
+    if p.is_absolute():
+        return p
+    return script_dir / p
+
+
 def main() -> None:
     args = parse_args()
+    script_dir = Path(__file__).resolve().parent
+
     model_path = _resolve_model_path(Path(args.model))
+
+    server_template_path = _resolve_template_path(args.server_template, script_dir)
+    if not server_template_path.exists():
+        raise FileNotFoundError(f"Server template not found: {server_template_path}")
+    server_code = server_template_path.read_text(encoding="utf-8")
+
+    telemetry_dashboard_template_path = _resolve_template_path(args.telemetry_dashboard_template, script_dir)
+    if not telemetry_dashboard_template_path.exists():
+        raise FileNotFoundError(f"Telemetry dashboard template not found: {telemetry_dashboard_template_path}")
+    telemetry_dashboard_code = telemetry_dashboard_template_path.read_text(encoding="utf-8")
 
     context_dir = Path(args.context_dir)
     if context_dir.exists():
         shutil.rmtree(context_dir)
 
-    _write_text(context_dir / "server.py", API_SERVER_CODE)
+    _write_text(context_dir / "server.py", server_code)
+    _write_text(context_dir / "telemetry_dashboard.html", telemetry_dashboard_code)
     _write_text(context_dir / "Dockerfile", DOCKERFILE_CODE)
     _write_text(context_dir / "requirements.txt", REQUIREMENTS_CODE)
     (context_dir / "model").mkdir(parents=True, exist_ok=True)
@@ -266,6 +136,8 @@ def main() -> None:
 
     print(f"[ok] Docker context generated at: {context_dir.resolve()}")
     print(f"[ok] Model copied from: {model_path.resolve()}")
+    print(f"[ok] server.py template: {server_template_path.resolve()}")
+    print(f"[ok] telemetry dashboard template: {telemetry_dashboard_template_path.resolve()}")
 
     if not args.build:
         print("[skip] Docker build disabled.")

@@ -7,10 +7,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from azure.data.tables import TableServiceClient
 from azure.storage.blob import BlobServiceClient, ContentSettings
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Header, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from PIL import Image
+from pydantic import BaseModel, Field
 from ultralytics import YOLO
 
 MODEL_PATH = os.getenv("MODEL_PATH", "/app/model/best.pt")
@@ -22,11 +25,16 @@ DEFAULT_MAX_DET = int(os.getenv("DEFAULT_MAX_DET", "1000"))
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "")
 BLOB_CONTAINER_IMAGES = os.getenv("BLOB_CONTAINER_IMAGES", "aphid-images")
 
+AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", BLOB_CONNECTION_STRING)
+TELEMETRY_TABLE = os.getenv("TELEMETRY_TABLE", "iottelemetry")
+IOT_API_KEY = os.getenv("IOT_API_KEY", "")
+DASHBOARD_PATH = "/app/telemetry_dashboard.html"
+
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
 model = YOLO(MODEL_PATH)
-app = FastAPI(title="Aphid YOLO26 Inference API", version="1.2.0")
+app = FastAPI(title="Aphid YOLO26 Inference API", version="1.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,6 +56,28 @@ if BLOB_CONNECTION_STRING:
     except Exception as exc:
         blob_init_error = str(exc)
         blob_service = None
+
+table_service: TableServiceClient | None = None
+telemetry_table = None
+telemetry_init_error = ""
+if AZURE_STORAGE_CONNECTION_STRING:
+    try:
+        table_service = TableServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
+        table_service.create_table_if_not_exists(TELEMETRY_TABLE)
+        telemetry_table = table_service.get_table_client(TELEMETRY_TABLE)
+    except Exception as exc:
+        telemetry_init_error = str(exc)
+        telemetry_table = None
+else:
+    telemetry_init_error = "AZURE_STORAGE_CONNECTION_STRING is empty."
+
+
+class TelemetryIn(BaseModel):
+    device_id: str = Field(..., min_length=1, max_length=64)
+    temperature: float | None = None
+    humidity: float | None = None
+    light: float | None = None
+    ts: datetime | None = None
 
 
 def _utc_stamp() -> str:
@@ -71,6 +101,19 @@ def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
     return blob_client.url
 
 
+def _desc_row_key(ts: datetime) -> str:
+    ms = int(ts.timestamp() * 1000)
+    inv = 9999999999999 - ms
+    return f"{inv:013d}_{uuid.uuid4().hex[:8]}"
+
+
+def _check_iot_api_key(x_api_key: str | None) -> None:
+    if not IOT_API_KEY:
+        return
+    if x_api_key != IOT_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
@@ -78,6 +121,8 @@ def health() -> dict[str, Any]:
         "model_path": MODEL_PATH,
         "blob_enabled": blob_service is not None,
         "blob_init_error": blob_init_error or None,
+        "telemetry_enabled": telemetry_table is not None,
+        "telemetry_init_error": telemetry_init_error or None,
     }
 
 
@@ -157,3 +202,66 @@ async def predict(
     if storage_error:
         response["storage_error"] = storage_error
     return response
+
+
+@app.post("/telemetry")
+def upload_telemetry(
+    payload: TelemetryIn,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _check_iot_api_key(x_api_key)
+
+    if telemetry_table is None:
+        raise HTTPException(status_code=503, detail=f"Telemetry storage unavailable: {telemetry_init_error}")
+
+    ts = payload.ts.astimezone(timezone.utc) if payload.ts else datetime.now(timezone.utc)
+    entity = {
+        "PartitionKey": payload.device_id,
+        "RowKey": _desc_row_key(ts),
+        "device_id": payload.device_id,
+        "ts": ts.isoformat(),
+        "temperature": payload.temperature,
+        "humidity": payload.humidity,
+        "light": payload.light,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    telemetry_table.upsert_entity(entity=entity)
+    return {"status": "ok", "device_id": payload.device_id, "ts": entity["ts"]}
+
+
+@app.get("/telemetry/latest")
+def telemetry_latest(
+    device_id: str = Query(..., min_length=1),
+    limit: int = Query(100, ge=1, le=500),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _check_iot_api_key(x_api_key)
+
+    if telemetry_table is None:
+        raise HTTPException(status_code=503, detail=f"Telemetry storage unavailable: {telemetry_init_error}")
+
+    items: list[dict[str, Any]] = []
+    query_filter = "PartitionKey eq @device_id"
+    parameters = {"device_id": device_id}
+
+    for entity in telemetry_table.query_entities(query_filter=query_filter, parameters=parameters):
+        items.append(
+            {
+                "device_id": entity.get("device_id"),
+                "ts": entity.get("ts"),
+                "temperature": entity.get("temperature"),
+                "humidity": entity.get("humidity"),
+                "light": entity.get("light"),
+            }
+        )
+        if len(items) >= limit:
+            break
+
+    return {"device_id": device_id, "count": len(items), "items": items}
+
+
+@app.get("/telemetry/dashboard")
+def telemetry_dashboard() -> FileResponse:
+    if not os.path.exists(DASHBOARD_PATH):
+        raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
+    return FileResponse(DASHBOARD_PATH)
