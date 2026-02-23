@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aphid Cloud Inference Client</title>
+  <title>蚜虫预测页面</title>
   <style>
     :root {
       --bg: #f3f7fb;
@@ -13,6 +13,8 @@
       --line: #d1d5db;
       --accent: #0f766e;
       --accent-2: #115e59;
+      --secondary: #475569;
+      --secondary-2: #334155;
       --err: #b91c1c;
     }
     * { box-sizing: border-box; }
@@ -32,7 +34,26 @@
       padding: 20px;
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
     }
-    h1 { margin: 0 0 14px 0; font-size: 22px; }
+    .top-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      background: var(--secondary);
+    }
+    .nav-btn:hover { background: var(--secondary-2); }
+    .nav-btn.active { background: var(--accent); }
+    h1 { margin: 0 0 10px 0; font-size: 22px; }
     .muted { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .field { display: flex; flex-direction: column; gap: 6px; }
@@ -59,15 +80,27 @@
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
-    .secondary { background: #475569; }
-    .secondary:hover { background: #334155; }
-    .preview {
-      max-width: 100%;
-      max-height: 360px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      display: none;
+    .secondary { background: var(--secondary); }
+    .secondary:hover { background: var(--secondary-2); }
+    .result-img-box {
       margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fbfdff;
+    }
+    .result-img-title {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    #resultCanvas {
+      width: 100%;
+      max-height: 480px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: none;
+      background: #fff;
     }
     .status {
       margin-top: 10px;
@@ -91,12 +124,18 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Aphid 云端识别网页客户端</h1>
-    <div class="muted">本地网页上传图片到 Azure /predict 接口，返回蚜虫计数与框信息。</div>
+    <div class="top-nav">
+      <a class="nav-btn active" href="#">预测</a>
+      <a id="telemetryNav" class="nav-btn" href="#">监测</a>
+      <a id="historyNav" class="nav-btn" href="#">历史</a>
+    </div>
+
+    <h1>Aphid 云端识别客户端</h1>
+    <div class="muted">上传图片到 Azure `/predict` 接口，返回 JSON 结果并绘制检测框图片。</div>
 
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
-        <label for="endpoint">接口地址（支持 base URL 或 /predict 完整路径）</label>
+        <label for="endpoint">接口地址（支持 base URL 或完整 `/predict` 路径）</label>
         <input id="endpoint" type="text" value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict" />
       </div>
       <div class="field">
@@ -126,7 +165,11 @@
       <button id="healthBtn" class="secondary">检查 Health</button>
     </div>
 
-    <img id="preview" class="preview" alt="image preview" />
+    <div class="result-img-box">
+      <div class="result-img-title">检测框结果图</div>
+      <canvas id="resultCanvas"></canvas>
+    </div>
+
     <div id="status" class="status"></div>
     <textarea id="result" readonly placeholder="识别结果 JSON 将显示在这里..."></textarea>
   </div>
@@ -142,7 +185,20 @@
     const healthBtn = document.getElementById("healthBtn");
     const statusEl = document.getElementById("status");
     const resultEl = document.getElementById("result");
-    const previewEl = document.getElementById("preview");
+    const resultCanvas = document.getElementById("resultCanvas");
+    const telemetryNav = document.getElementById("telemetryNav");
+    const historyNav = document.getElementById("historyNav");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/predict/dashboard")) {
+        telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+        historyNav.href = `${window.location.origin}/history/dashboard`;
+      } else {
+        telemetryNav.href = "./telemetry_dashboard.html";
+        historyNav.href = "./history_records.html";
+      }
+    }
 
     function normalizePredictUrl(url) {
       const u = url.trim().replace(/\/+$/, "");
@@ -159,17 +215,62 @@
       statusEl.className = isError ? "status error" : "status";
     }
 
-    imageInput.addEventListener("change", () => {
-      const file = imageInput.files && imageInput.files[0];
-      if (!file) {
-        previewEl.style.display = "none";
-        previewEl.src = "";
-        return;
+    function colorFromClassId(classId) {
+      const palette = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
+      const idx = Math.abs(Number(classId) || 0) % palette.length;
+      return palette[idx];
+    }
+
+    function drawDetections(imageElement, detections) {
+      const ctx = resultCanvas.getContext("2d");
+      resultCanvas.width = imageElement.naturalWidth;
+      resultCanvas.height = imageElement.naturalHeight;
+
+      ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      ctx.drawImage(imageElement, 0, 0);
+
+      for (const det of detections || []) {
+        const bbox = det.bbox_xyxy || [];
+        if (bbox.length !== 4) continue;
+        const [x1, y1, x2, y2] = bbox.map(Number);
+        const w = x2 - x1;
+        const h = y2 - y1;
+        const color = colorFromClassId(det.class_id);
+        const label = `${det.class_name || det.class_id} ${(Number(det.confidence) || 0).toFixed(2)}`;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, Math.round(resultCanvas.width / 500));
+        ctx.strokeRect(x1, y1, w, h);
+
+        ctx.font = `${Math.max(14, Math.round(resultCanvas.width / 60))}px sans-serif`;
+        const textWidth = ctx.measureText(label).width;
+        const textHeight = Math.max(18, Math.round(resultCanvas.width / 45));
+        const textX = x1;
+        const textY = Math.max(textHeight, y1);
+
+        ctx.fillStyle = color;
+        ctx.fillRect(textX, textY - textHeight, textWidth + 10, textHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(label, textX + 5, textY - 5);
       }
+
+      resultCanvas.style.display = "block";
+    }
+
+    async function renderImageWithBoxes(file, detections) {
       const objectUrl = URL.createObjectURL(file);
-      previewEl.src = objectUrl;
-      previewEl.style.display = "block";
-    });
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = objectUrl;
+        });
+        drawDetections(img, detections);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
 
     healthBtn.addEventListener("click", async () => {
       try {
@@ -177,9 +278,7 @@
         const hUrl = healthUrlFromPredict(predictUrl);
         setStatus(`检查中: ${hUrl}`);
         const res = await fetch(hUrl, { method: "GET" });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setStatus("Health 正常。");
         resultEl.value = JSON.stringify(data, null, 2);
@@ -206,6 +305,8 @@
       try {
         setStatus("正在上传并推理...");
         resultEl.value = "";
+        resultCanvas.style.display = "none";
+
         const formData = new FormData();
         formData.append("image", file, file.name);
 
@@ -220,14 +321,15 @@
         }
 
         const data = await res.json();
-        const count = (data && typeof data.count === "number") ? data.count : "N/A";
-        setStatus(`推理成功，检测数量: ${count}`);
         resultEl.value = JSON.stringify(data, null, 2);
+        await renderImageWithBoxes(file, data.detections || []);
+        setStatus(`推理成功，检测数量: ${data.count}`);
       } catch (err) {
-        const tip = "\n如果浏览器提示 CORS，请告诉我，我会帮你把后端加上 CORS 允许配置并重新部署。";
-        setStatus(`调用失败: ${err.message}${tip}`, true);
+        setStatus(`调用失败: ${err.message}`, true);
       }
     });
+
+    configureNavigation();
   </script>
 </body>
 </html>

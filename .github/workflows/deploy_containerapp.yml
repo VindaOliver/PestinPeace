@@ -39,12 +39,22 @@ jobs:
           echo "CONTAINER_APP_NAME=$CONTAINER_APP_NAME_VALUE" >> "$GITHUB_ENV"
           echo "IMAGE_REPO=$IMAGE_REPO_VALUE" >> "$GITHUB_ENV"
 
+      - name: Sync web pages into docker context
+        shell: bash
+        run: |
+          cp web_pages/telemetry_dashboard.html .container_yolo26/telemetry_dashboard.html
+          cp web_pages/local_web_client.html .container_yolo26/local_web_client.html
+          cp web_pages/history_records.html .container_yolo26/history_records.html
+
       - name: Validate docker context files
         shell: bash
         run: |
           test -f .container_yolo26/Dockerfile
           test -f .container_yolo26/requirements.txt
           test -f .container_yolo26/server.py
+          test -f .container_yolo26/telemetry_dashboard.html
+          test -f .container_yolo26/local_web_client.html
+          test -f .container_yolo26/history_records.html
           test -f .container_yolo26/model/best.pt
 
       - name: Azure login (OIDC)

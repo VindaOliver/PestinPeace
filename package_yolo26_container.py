@@ -23,6 +23,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY server.py /app/server.py
 COPY telemetry_dashboard.html /app/telemetry_dashboard.html
+COPY local_web_client.html /app/local_web_client.html
+COPY history_records.html /app/history_records.html
 COPY model/best.pt /app/model/best.pt
 
 EXPOSE 8000
@@ -62,8 +64,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--telemetry-dashboard-template",
-        default=".container_yolo26/telemetry_dashboard.html",
+        default="web_pages/telemetry_dashboard.html",
         help="Template telemetry dashboard HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--predict-web-template",
+        default="web_pages/local_web_client.html",
+        help="Template predict web client HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--history-web-template",
+        default="web_pages/history_records.html",
+        help="Template history records HTML path to copy into build context.",
     )
     parser.add_argument(
         "--image-tag",
@@ -123,12 +135,24 @@ def main() -> None:
         raise FileNotFoundError(f"Telemetry dashboard template not found: {telemetry_dashboard_template_path}")
     telemetry_dashboard_code = telemetry_dashboard_template_path.read_text(encoding="utf-8")
 
+    predict_web_template_path = _resolve_template_path(args.predict_web_template, script_dir)
+    if not predict_web_template_path.exists():
+        raise FileNotFoundError(f"Predict web template not found: {predict_web_template_path}")
+    predict_web_code = predict_web_template_path.read_text(encoding="utf-8")
+
+    history_web_template_path = _resolve_template_path(args.history_web_template, script_dir)
+    if not history_web_template_path.exists():
+        raise FileNotFoundError(f"History web template not found: {history_web_template_path}")
+    history_web_code = history_web_template_path.read_text(encoding="utf-8")
+
     context_dir = Path(args.context_dir)
     if context_dir.exists():
         shutil.rmtree(context_dir)
 
     _write_text(context_dir / "server.py", server_code)
     _write_text(context_dir / "telemetry_dashboard.html", telemetry_dashboard_code)
+    _write_text(context_dir / "local_web_client.html", predict_web_code)
+    _write_text(context_dir / "history_records.html", history_web_code)
     _write_text(context_dir / "Dockerfile", DOCKERFILE_CODE)
     _write_text(context_dir / "requirements.txt", REQUIREMENTS_CODE)
     (context_dir / "model").mkdir(parents=True, exist_ok=True)
@@ -138,6 +162,8 @@ def main() -> None:
     print(f"[ok] Model copied from: {model_path.resolve()}")
     print(f"[ok] server.py template: {server_template_path.resolve()}")
     print(f"[ok] telemetry dashboard template: {telemetry_dashboard_template_path.resolve()}")
+    print(f"[ok] predict web template: {predict_web_template_path.resolve()}")
+    print(f"[ok] history web template: {history_web_template_path.resolve()}")
 
     if not args.build:
         print("[skip] Docker build disabled.")

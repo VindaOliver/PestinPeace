@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>识别历史记录</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --line: #d5dde8;
+      --text: #1f2a37;
+      --muted: #5f6f82;
+      --accent: #0f766e;
+      --accent-2: #115e59;
+      --secondary: #475569;
+      --secondary-2: #334155;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Noto Sans SC", sans-serif;
+      background: linear-gradient(180deg, #ebf4ff 0%, var(--bg) 100%);
+      color: var(--text);
+      padding: 20px;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .top-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      background: var(--secondary);
+    }
+    .nav-btn:hover { background: var(--secondary-2); }
+    .nav-btn.active { background: var(--accent); }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    input, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: var(--accent-2);
+    }
+    .status {
+      font-size: 13px;
+      margin: 8px 0 12px 0;
+      color: var(--muted);
+      min-height: 18px;
+    }
+    .status.err { color: var(--danger); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      margin-bottom: 12px;
+      background: #fbfdff;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      font-size: 13px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    th {
+      background: #f0f6ff;
+    }
+    .raw {
+      width: 100%;
+      min-height: 220px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      resize: vertical;
+    }
+    @media (max-width: 920px) {
+      .controls { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-nav">
+      <a id="predictNav" class="nav-btn" href="#">预测</a>
+      <a id="telemetryNav" class="nav-btn" href="#">监测</a>
+      <a class="nav-btn active" href="#">历史</a>
+    </div>
+
+    <h1>识别历史记录</h1>
+    <div class="controls">
+      <div>
+        <label for="baseUrl">Base URL</label>
+        <input id="baseUrl" value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io" />
+      </div>
+      <div>
+        <label for="limit">Limit</label>
+        <input id="limit" type="number" min="1" max="500" value="50" />
+      </div>
+      <div>
+        <button id="loadBtn">加载历史</button>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 180px;">Time (UTC)</th>
+          <th style="width: 250px;">Request ID</th>
+          <th style="width: 180px;">Filename</th>
+          <th style="width: 70px;">Count</th>
+          <th>Image Blob</th>
+          <th>History Blob</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+
+    <textarea id="raw" class="raw" readonly placeholder="Response JSON..."></textarea>
+  </div>
+
+  <script>
+    const baseEl = document.getElementById("baseUrl");
+    const limitEl = document.getElementById("limit");
+    const loadBtn = document.getElementById("loadBtn");
+    const statusEl = document.getElementById("status");
+    const bodyEl = document.getElementById("historyBody");
+    const rawEl = document.getElementById("raw");
+    const predictNav = document.getElementById("predictNav");
+    const telemetryNav = document.getElementById("telemetryNav");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/history/dashboard")) {
+        predictNav.href = `${window.location.origin}/predict/dashboard`;
+        telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+      } else {
+        predictNav.href = "./local_web_client.html";
+        telemetryNav.href = "./telemetry_dashboard.html";
+      }
+    }
+
+    function setStatus(text, isErr = false) {
+      statusEl.textContent = text;
+      statusEl.className = isErr ? "status err" : "status";
+    }
+
+    function linkOrDash(url, name) {
+      if (!url) return "-";
+      const text = name || url;
+      return `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
+    }
+
+    function renderRows(records) {
+      bodyEl.innerHTML = "";
+      for (const r of records || []) {
+        const tr = document.createElement("tr");
+        const time = r.timestamp_utc || r.history_last_modified_utc || "";
+        const req = r.request_id || "";
+        const fname = r.filename || "";
+        const count = Number.isFinite(Number(r.count)) ? Number(r.count) : "";
+        const imageCell = linkOrDash(r.image_blob_url, r.image_blob_name || "open");
+        const historyCell = linkOrDash(r.history_blob_url, r.history_blob_name || "open");
+
+        tr.innerHTML = `
+          <td>${time}</td>
+          <td>${req}</td>
+          <td>${fname}</td>
+          <td>${count}</td>
+          <td>${imageCell}</td>
+          <td>${historyCell}</td>
+        `;
+        bodyEl.appendChild(tr);
+      }
+    }
+
+    async function loadHistory() {
+      const base = baseEl.value.trim().replace(/\/+$/, "");
+      const limit = limitEl.value || "50";
+      if (!base) {
+        setStatus("Base URL 不能为空。", true);
+        return;
+      }
+
+      const url = `${base}/history?limit=${encodeURIComponent(limit)}`;
+      try {
+        setStatus(`加载中: ${url}`);
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const txt = await resp.text();
+          throw new Error(`HTTP ${resp.status} ${txt}`);
+        }
+        const data = await resp.json();
+        renderRows(data.records || []);
+        rawEl.value = JSON.stringify(data, null, 2);
+        setStatus(`加载成功，共 ${data.count ?? 0} 条记录。`);
+      } catch (err) {
+        setStatus(`加载失败: ${err.message}`, true);
+      }
+    }
+
+    loadBtn.addEventListener("click", loadHistory);
+    configureNavigation();
+  </script>
+</body>
+</html>

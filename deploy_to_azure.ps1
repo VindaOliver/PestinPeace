@@ -7,12 +7,14 @@ param(
     [string]$ContainerAppName = ("aca-aphid-yolo-" + (Get-Random -Minimum 1000 -Maximum 9999)),
     [string]$ImageName = "aphid-yolo26:latest",
     [string]$ContextDir = ".container_yolo26",
+    [string]$WebPagesDir = "web_pages",
     [double]$Cpu = 2.0,
     [string]$Memory = "4Gi",
     [int]$MinReplicas = 1,
     [int]$MaxReplicas = 3,
     [string]$BlobConnectionString = "",
     [string]$BlobImageContainer = "aphid-images",
+    [string]$BlobHistoryContainer = "aphid-history",
     [switch]$UseLocalDockerBuild,
     [switch]$SkipAcrBuild
 )
@@ -71,6 +73,34 @@ function Invoke-LocalDockerBuildPush([string]$ImageRef, [string]$RegistryName, [
     }
 }
 
+function Sync-WebPagesToContext([string]$WebPagesDir, [string]$ContextDir) {
+    if (-not (Test-Path -LiteralPath $WebPagesDir)) {
+        throw "Web pages directory not found: $WebPagesDir"
+    }
+
+    $telemetrySrc = Join-Path $WebPagesDir "telemetry_dashboard.html"
+    $predictSrc = Join-Path $WebPagesDir "local_web_client.html"
+    $historySrc = Join-Path $WebPagesDir "history_records.html"
+    $telemetryDst = Join-Path $ContextDir "telemetry_dashboard.html"
+    $predictDst = Join-Path $ContextDir "local_web_client.html"
+    $historyDst = Join-Path $ContextDir "history_records.html"
+
+    if (-not (Test-Path -LiteralPath $telemetrySrc)) {
+        throw "Missing file: $telemetrySrc"
+    }
+    if (-not (Test-Path -LiteralPath $predictSrc)) {
+        throw "Missing file: $predictSrc"
+    }
+    if (-not (Test-Path -LiteralPath $historySrc)) {
+        throw "Missing file: $historySrc"
+    }
+
+    Copy-Item -LiteralPath $telemetrySrc -Destination $telemetryDst -Force
+    Copy-Item -LiteralPath $predictSrc -Destination $predictDst -Force
+    Copy-Item -LiteralPath $historySrc -Destination $historyDst -Force
+    Write-Host ">> Synced web pages into container context."
+}
+
 $script:AzExe = Resolve-AzExecutable
 Write-Host "Using Azure CLI: $script:AzExe"
 
@@ -86,6 +116,8 @@ try {
 if (-not (Test-Path -LiteralPath $ContextDir)) {
     throw "Container context directory not found: $ContextDir"
 }
+
+Sync-WebPagesToContext -WebPagesDir $WebPagesDir -ContextDir $ContextDir
 
 Write-Host "Deployment configuration:"
 Write-Host "  ResourceGroup:    $ResourceGroup"
@@ -143,7 +175,8 @@ if (-not $acrUser -or -not $acrPass) {
 
 $envVars = @(
     "MODEL_PATH=/app/model/best.pt",
-    "BLOB_CONTAINER_IMAGES=$BlobImageContainer"
+    "BLOB_CONTAINER_IMAGES=$BlobImageContainer",
+    "BLOB_CONTAINER_HISTORY=$BlobHistoryContainer"
 )
 $secretPairs = @()
 if ($BlobConnectionString) {

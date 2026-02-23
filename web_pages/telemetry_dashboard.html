@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IoT Telemetry Dashboard</title>
+  <title>IoT 监测页面</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
@@ -13,12 +13,15 @@
       --text: #1f2a37;
       --muted: #5f6f82;
       --accent: #0f766e;
+      --accent-2: #115e59;
+      --secondary: #475569;
+      --secondary-2: #334155;
       --danger: #b91c1c;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", "Noto Sans", sans-serif;
+      font-family: "Segoe UI", "Noto Sans SC", sans-serif;
       background: linear-gradient(180deg, #ebf4ff 0%, var(--bg) 100%);
       color: var(--text);
       padding: 20px;
@@ -31,6 +34,25 @@
       border-radius: 12px;
       padding: 16px;
     }
+    .top-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      background: var(--secondary);
+    }
+    .nav-btn:hover { background: var(--secondary-2); }
+    .nav-btn.active { background: var(--accent); }
     h1 {
       margin: 0 0 10px 0;
       font-size: 22px;
@@ -62,6 +84,9 @@
       cursor: pointer;
       font-weight: 600;
     }
+    button:hover {
+      background: var(--accent-2);
+    }
     .status {
       font-size: 13px;
       margin: 8px 0 12px 0;
@@ -92,6 +117,12 @@
 </head>
 <body>
   <div class="wrap">
+    <div class="top-nav">
+      <a id="predictNav" class="nav-btn" href="#">预测</a>
+      <a id="telemetryNav" class="nav-btn active" href="#">监测</a>
+      <a id="historyNav" class="nav-btn" href="#">历史</a>
+    </div>
+
     <h1>IoT Telemetry Dashboard</h1>
     <div class="grid">
       <div>
@@ -128,12 +159,25 @@
   </div>
 
   <script>
-    const defaultBase = window.location.origin;
+    const defaultBase = "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io";
     const baseEl = document.getElementById("baseUrl");
     const deviceEl = document.getElementById("deviceId");
     const keyEl = document.getElementById("apiKey");
     const loadBtn = document.getElementById("loadBtn");
     const statusEl = document.getElementById("status");
+    const predictNav = document.getElementById("predictNav");
+    const historyNav = document.getElementById("historyNav");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/telemetry/dashboard")) {
+        predictNav.href = `${window.location.origin}/predict/dashboard`;
+        historyNav.href = `${window.location.origin}/history/dashboard`;
+      } else {
+        predictNav.href = "./local_web_client.html";
+        historyNav.href = "./history_records.html";
+      }
+    }
 
     baseEl.value = defaultBase;
 
@@ -159,9 +203,7 @@
         options: {
           responsive: true,
           animation: false,
-          scales: {
-            x: { ticks: { maxTicksLimit: 8 } }
-          }
+          scales: { x: { ticks: { maxTicksLimit: 8 } } }
         }
       });
     }
@@ -214,6 +256,8 @@
 
     loadBtn.addEventListener("click", loadLatest);
     setInterval(loadLatest, 10000);
+
+    configureNavigation();
   </script>
 </body>
 </html>
