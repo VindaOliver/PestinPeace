@@ -352,6 +352,7 @@
       <a class="nav-btn active" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn" href="#">监测</a>
       <a id="historyNav" class="nav-btn" href="#">历史</a>
+      <a id="decisionNav" class="nav-btn" href="#">Decision</a>
     </div>
 
     <h1>Aphid 云端识别客户端</h1>
@@ -413,15 +414,18 @@
     const resultCanvas = document.getElementById("resultCanvas");
     const telemetryNav = document.getElementById("telemetryNav");
     const historyNav = document.getElementById("historyNav");
+    const decisionNav = document.getElementById("decisionNav");
 
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/predict/dashboard")) {
         telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
         historyNav.href = `${window.location.origin}/history/dashboard`;
+        decisionNav.href = `${window.location.origin}/decision/dashboard`;
       } else {
         telemetryNav.href = "./telemetry_dashboard.html";
         historyNav.href = "./history_records.html";
+        decisionNav.href = "./decision_dashboard.html";
       }
     }
 

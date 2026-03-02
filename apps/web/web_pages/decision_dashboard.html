@@ -320,6 +320,21 @@
       outline: none;
     }
 
+    .logic-note {
+      margin-top: 14px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.55);
+      padding: 14px 16px;
+      color: #1e293b;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+
+    .logic-note strong {
+      color: var(--accent-dark);
+    }
+
     @media (max-width: 980px) {
       .grid {
         grid-template-columns: 1fr 1fr;
@@ -365,65 +380,65 @@
 
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
-        <label for="endpoint">Decision Endpoint (base URL or /decision/weekly)</label>
+        <label for="endpoint">Decision Endpoint（决策接口地址，base URL 或 /decision/weekly）</label>
         <input id="endpoint" type="text"
           value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/decision/weekly" />
       </div>
 
       <div class="field">
-        <label for="aphidCount">aphid_count</label>
+        <label for="aphidCount">aphid_count（蚜虫数量）</label>
         <input id="aphidCount" type="number" step="1" min="0" value="18" />
       </div>
       <div class="field">
-        <label for="fieldArea">field_area_ha</label>
+        <label for="fieldArea">field_area_ha（地块面积，公顷）</label>
         <input id="fieldArea" type="number" step="0.1" min="0.1" value="2.0" />
       </div>
       <div class="field">
-        <label for="exposureDays">exposure_days</label>
+        <label for="exposureDays">exposure_days（暴露天数）</label>
         <input id="exposureDays" type="number" step="1" min="1" max="14" value="7" />
       </div>
 
       <div class="field">
-        <label for="weekStart">week_start</label>
+        <label for="weekStart">week_start（周起始日期）</label>
         <input id="weekStart" type="date" value="2026-06-01" />
       </div>
       <div class="field">
-        <label for="prevCatchRate">prev_catch_rate (optional)</label>
-        <input id="prevCatchRate" type="number" step="0.01" min="0" placeholder="optional" />
+        <label for="prevCatchRate">prev_catch_rate（上周诱捕率，可选）</label>
+        <input id="prevCatchRate" type="number" step="0.01" min="0" placeholder="optional（可选）" />
       </div>
       <div class="field">
-        <label for="catchTrend">catch_trend (optional)</label>
-        <input id="catchTrend" type="number" step="0.01" placeholder="optional" />
+        <label for="catchTrend">catch_trend（诱捕趋势，可选）</label>
+        <input id="catchTrend" type="number" step="0.01" placeholder="optional（可选）" />
       </div>
 
       <div class="field">
-        <label for="tMean">t_mean</label>
+        <label for="tMean">t_mean（平均温度）</label>
         <input id="tMean" type="number" step="0.1" value="16.4" />
       </div>
       <div class="field">
-        <label for="rhMean">rh_mean</label>
+        <label for="rhMean">rh_mean（平均湿度）</label>
         <input id="rhMean" type="number" step="0.1" min="0" max="100" value="72.0" />
       </div>
       <div class="field">
-        <label for="vpdMean">vpd_mean (optional)</label>
-        <input id="vpdMean" type="number" step="0.01" min="0" placeholder="optional" />
+        <label for="vpdMean">vpd_mean（平均VPD，可选）</label>
+        <input id="vpdMean" type="number" step="0.01" min="0" placeholder="optional（可选）" />
       </div>
 
       <div class="field">
-        <label for="inWindow">in_tepp_window</label>
+        <label for="inWindow">in_tepp_window（是否在用药窗口）</label>
         <select id="inWindow">
-          <option value="" selected>auto by week_start</option>
+          <option value="" selected>auto by week_start（按 week_start 自动判断）</option>
           <option value="1">1</option>
           <option value="0">0</option>
         </select>
       </div>
       <div class="field">
-        <label for="appsSoFar">apps_so_far</label>
+        <label for="appsSoFar">apps_so_far（本季已施药次数）</label>
         <input id="appsSoFar" type="number" step="1" min="0" value="0" />
       </div>
       <div class="field check-field">
         <input id="respectGate" type="checkbox" checked />
-        <label for="respectGate" style="margin: 0; text-transform: none; letter-spacing: 0;">respect_compliance_gate</label>
+        <label for="respectGate" style="margin: 0; text-transform: none; letter-spacing: 0;">respect_compliance_gate（执行合规门控）</label>
       </div>
     </div>
 
@@ -437,39 +452,45 @@
 
     <div class="cards">
       <div class="card">
-        <div class="card-label">scope_class</div>
+        <div class="card-label">scope_class（喷施范围等级）</div>
         <div class="card-value" id="scopeClass">-</div>
       </div>
       <div class="card">
-        <div class="card-label">scope_name</div>
+        <div class="card-label">scope_name（喷施范围名称）</div>
         <div class="card-value" id="scopeName">-</div>
       </div>
       <div class="card">
-        <div class="card-label">product_kg</div>
+        <div class="card-label">product_kg（药剂总量，kg）</div>
         <div class="card-value" id="productKg">-</div>
       </div>
       <div class="card">
-        <div class="card-label">spray_l</div>
+        <div class="card-label">spray_l（喷液总量，L）</div>
         <div class="card-value" id="sprayL">-</div>
       </div>
     </div>
 
     <div class="cards" style="margin-top: 0;">
       <div class="card">
-        <div class="card-label">water_l_ha</div>
+        <div class="card-label">water_l_ha（单位面积水量，L/ha）</div>
         <div class="card-value" id="waterLha">-</div>
       </div>
       <div class="card">
-        <div class="card-label">treated_fraction</div>
+        <div class="card-label">treated_fraction（处理面积比例）</div>
         <div class="card-value" id="treatedFraction">-</div>
       </div>
       <div class="card" style="grid-column: span 2;">
-        <div class="card-label">gate_reason</div>
+        <div class="card-label">gate_reason（门控原因）</div>
         <div class="card-value" id="gateReason" style="font-size: 16px; line-height: 1.35;">-</div>
       </div>
     </div>
 
-    <textarea id="result" readonly placeholder="Decision JSON will appear here..."></textarea>
+    <textarea id="result" readonly placeholder="Decision JSON（决策结果） will appear here..."></textarea>
+    <div class="logic-note">
+      <strong>策略逻辑说明：</strong>
+      模型先根据黄板诱捕强度、趋势和天气给出喷施范围（不喷/边界带/全田），再由合规门控检查是否在可施药窗口且次数未超限；
+      若不满足合规条件会强制为不喷。最终“喷多少”不是自由回归，而是按固定剂量和范围比例计算：`product_kg = rate * area * treated_fraction`，
+      喷液量按水量档位计算：`spray_l = water_l_ha * area * treated_fraction`。
+    </div>
   </div>
 
   <script>

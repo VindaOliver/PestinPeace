@@ -331,6 +331,7 @@
       <a id="predictNav" class="nav-btn" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn active" href="#">监测</a>
       <a id="historyNav" class="nav-btn" href="#">历史</a>
+      <a id="decisionNav" class="nav-btn" href="#">Decision</a>
     </div>
 
     <h1>IoT Telemetry Dashboard</h1>
@@ -389,15 +390,18 @@
     const statusEl = document.getElementById("status");
     const predictNav = document.getElementById("predictNav");
     const historyNav = document.getElementById("historyNav");
+    const decisionNav = document.getElementById("decisionNav");
 
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/telemetry/dashboard")) {
         predictNav.href = `${window.location.origin}/predict/dashboard`;
         historyNav.href = `${window.location.origin}/history/dashboard`;
+        decisionNav.href = `${window.location.origin}/decision/dashboard`;
       } else {
         predictNav.href = "./local_web_client.html";
         historyNav.href = "./history_records.html";
+        decisionNav.href = "./decision_dashboard.html";
       }
     }
 

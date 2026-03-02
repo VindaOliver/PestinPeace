@@ -441,6 +441,7 @@
       <a id="predictNav" class="nav-btn" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn" href="#">监测</a>
       <a class="nav-btn active" href="#">历史</a>
+      <a id="decisionNav" class="nav-btn" href="#">Decision</a>
     </div>
 
     <h1>识别历史记录</h1>
@@ -478,6 +479,7 @@
     const bodyEl = document.getElementById("historyBody");
     const predictNav = document.getElementById("predictNav");
     const telemetryNav = document.getElementById("telemetryNav");
+    const decisionNav = document.getElementById("decisionNav");
     const trendCanvas = document.getElementById("countTrendChart");
     let trendChart = null;
 
@@ -486,9 +488,11 @@
       if (path.endsWith("/history/dashboard")) {
         predictNav.href = `${window.location.origin}/predict/dashboard`;
         telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+        decisionNav.href = `${window.location.origin}/decision/dashboard`;
       } else {
         predictNav.href = "./local_web_client.html";
         telemetryNav.href = "./telemetry_dashboard.html";
+        decisionNav.href = "./decision_dashboard.html";
       }
     }
 
