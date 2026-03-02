@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>蚜虫预测页面</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --bg-start: #e8f0fe;
+      --bg-end: #f0f4f8;
+      --card: rgba(255, 255, 255, 0.65);
+      --card-border: rgba(255, 255, 255, 0.45);
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #0d9488;
+      --accent-dark: #0f766e;
+      --accent-glow: rgba(13, 148, 136, 0.35);
+      --gradient-btn: linear-gradient(135deg, #0d9488, #065f46);
+      --gradient-btn-hover: linear-gradient(135deg, #14b8a6, #0d9488);
+      --secondary: #475569;
+      --secondary-2: #334155;
+      --err: #dc2626;
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    /* ── Reset & base ── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", "Noto Sans SC", sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+      padding: 32px 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background blobs ── */
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.35;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    body::before {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, #5eead4 0%, transparent 70%);
+      top: -120px;
+      left: -80px;
+      animation: blobDrift 18s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, #a78bfa 0%, transparent 70%);
+      bottom: -100px;
+      right: -60px;
+      animation: blobDrift 22s ease-in-out infinite alternate-reverse;
+    }
+
+    @keyframes blobDrift {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      50% {
+        transform: translate(40px, -30px) scale(1.08);
+      }
+
+      100% {
+        transform: translate(-20px, 20px) scale(0.95);
+      }
+    }
+
+    /* ── Glassmorphism card ── */
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1060px;
+      margin: 0 auto;
+      background: var(--card);
+      backdrop-filter: blur(24px) saturate(1.6);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04);
+      animation: fadeSlideUp 0.6s ease-out both;
+    }
+
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── Segmented nav ── */
+    .top-nav {
+      display: inline-flex;
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 22px;
+      border-radius: 11px;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      background: transparent;
+      transition: all 0.25s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .nav-btn.active {
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    /* ── Headings ── */
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13.5px;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* ── Form grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="file"] {
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text);
+      transition: all 0.25s ease;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3.5px var(--accent-glow);
+    }
+
+    /* ── Buttons ── */
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.25s ease;
+      letter-spacing: 0.01em;
+    }
+
+    button:hover {
+      background: var(--gradient-btn-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .secondary {
+      background: linear-gradient(135deg, #64748b, #475569);
+      box-shadow: 0 4px 14px rgba(71, 85, 105, 0.25);
+    }
+
+    .secondary:hover {
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+      box-shadow: 0 6px 20px rgba(71, 85, 105, 0.3);
+    }
+
+    /* ── Result image box ── */
+    .result-img-box {
+      margin-top: 8px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(8px);
+    }
+
+    .result-img-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+    }
+
+    #resultCanvas {
+      width: 100%;
+      max-height: 480px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      display: none;
+      background: #fff;
+    }
+
+    /* ── Status ── */
+    .status {
+      margin-top: 12px;
+      font-size: 13.5px;
+      white-space: pre-wrap;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .error {
+      color: var(--err);
+    }
+
+    /* ── Textarea ── */
+    textarea {
+      width: 100%;
+      min-height: 240px;
+      resize: vertical;
+      margin-top: 12px;
+      font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 12.5px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      background: rgba(15, 23, 42, 0.03);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+      line-height: 1.6;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3.5px var(--accent-glow);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 820px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      body {
+        padding: 16px 12px;
+      }
+
+      .wrap {
+        padding: 20px;
+        border-radius: 16px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top-nav">
+      <a class="nav-btn active" href="#">预测</a>
+      <a id="telemetryNav" class="nav-btn" href="#">监测</a>
+      <a id="historyNav" class="nav-btn" href="#">历史</a>
+    </div>
+
+    <h1>Aphid 云端识别客户端</h1>
+    <div class="subtitle">上传图片到 Azure <code>/predict</code> 接口，返回 JSON 结果并绘制检测框图片。</div>
+
+    <div class="grid">
+      <div class="field" style="grid-column: 1 / -1;">
+        <label for="endpoint">接口地址（支持 base URL 或完整 /predict 路径）</label>
+        <input id="endpoint" type="text"
+          value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict" />
+      </div>
+      <div class="field">
+        <label for="conf">conf</label>
+        <input id="conf" type="number" step="0.01" value="0.25" />
+      </div>
+      <div class="field">
+        <label for="iou">iou</label>
+        <input id="iou" type="number" step="0.01" value="0.45" />
+      </div>
+      <div class="field">
+        <label for="imgsz">imgsz</label>
+        <input id="imgsz" type="number" step="1" value="640" />
+      </div>
+      <div class="field">
+        <label for="maxDet">max_det</label>
+        <input id="maxDet" type="number" step="1" value="1000" />
+      </div>
+      <div class="field" style="grid-column: 1 / -1;">
+        <label for="image">选择图片</label>
+        <input id="image" type="file" accept="image/*" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="predictBtn">上传并识别</button>
+      <button id="healthBtn" class="secondary">检查 Health</button>
+    </div>
+
+    <div class="result-img-box">
+      <div class="result-img-title">检测框结果图</div>
+      <canvas id="resultCanvas"></canvas>
+    </div>
+
+    <div id="status" class="status"></div>
+    <textarea id="result" readonly placeholder="识别结果 JSON 将显示在这里..."></textarea>
+  </div>
+
+  <script>
+    const endpointInput = document.getElementById("endpoint");
+    const confInput = document.getElementById("conf");
+    const iouInput = document.getElementById("iou");
+    const imgszInput = document.getElementById("imgsz");
+    const maxDetInput = document.getElementById("maxDet");
+    const imageInput = document.getElementById("image");
+    const predictBtn = document.getElementById("predictBtn");
+    const healthBtn = document.getElementById("healthBtn");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+    const resultCanvas = document.getElementById("resultCanvas");
+    const telemetryNav = document.getElementById("telemetryNav");
+    const historyNav = document.getElementById("historyNav");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/predict/dashboard")) {
+        telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+        historyNav.href = `${window.location.origin}/history/dashboard`;
+      } else {
+        telemetryNav.href = "./telemetry_dashboard.html";
+        historyNav.href = "./history_records.html";
+      }
+    }
+
+    function normalizePredictUrl(url) {
+      const u = url.trim().replace(/\/+$/, "");
+      if (u.endsWith("/predict")) return u;
+      return `${u}/predict`;
+    }
+
+    function healthUrlFromPredict(predictUrl) {
+      return predictUrl.replace(/\/predict$/, "/health");
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.className = isError ? "status error" : "status";
+    }
+
+    function colorFromClassId(classId) {
+      const palette = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
+      const idx = Math.abs(Number(classId) || 0) % palette.length;
+      return palette[idx];
+    }
+
+    function drawDetections(imageElement, detections) {
+      const ctx = resultCanvas.getContext("2d");
+      resultCanvas.width = imageElement.naturalWidth;
+      resultCanvas.height = imageElement.naturalHeight;
+
+      ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      ctx.drawImage(imageElement, 0, 0);
+
+      for (const det of detections || []) {
+        const bbox = det.bbox_xyxy || [];
+        if (bbox.length !== 4) continue;
+        const [x1, y1, x2, y2] = bbox.map(Number);
+        const w = x2 - x1;
+        const h = y2 - y1;
+        const color = colorFromClassId(det.class_id);
+        const label = `${det.class_name || det.class_id} ${(Number(det.confidence) || 0).toFixed(2)}`;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, Math.round(resultCanvas.width / 500));
+        ctx.strokeRect(x1, y1, w, h);
+
+        ctx.font = `${Math.max(14, Math.round(resultCanvas.width / 60))}px sans-serif`;
+        const textWidth = ctx.measureText(label).width;
+        const textHeight = Math.max(18, Math.round(resultCanvas.width / 45));
+        const textX = x1;
+        const textY = Math.max(textHeight, y1);
+
+        ctx.fillStyle = color;
+        ctx.fillRect(textX, textY - textHeight, textWidth + 10, textHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(label, textX + 5, textY - 5);
+      }
+
+      resultCanvas.style.display = "block";
+    }
+
+    async function renderImageWithBoxes(file, detections) {
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = objectUrl;
+        });
+        drawDetections(img, detections);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    healthBtn.addEventListener("click", async () => {
+      try {
+        const predictUrl = normalizePredictUrl(endpointInput.value);
+        const hUrl = healthUrlFromPredict(predictUrl);
+        setStatus(`检查中: ${hUrl}`);
+        const res = await fetch(hUrl, { method: "GET" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setStatus("Health 正常。");
+        resultEl.value = JSON.stringify(data, null, 2);
+      } catch (err) {
+        setStatus(`Health 检查失败: ${err.message}`, true);
+      }
+    });
+
+    predictBtn.addEventListener("click", async () => {
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) {
+        setStatus("请先选择图片。", true);
+        return;
+      }
+
+      const predictUrl = normalizePredictUrl(endpointInput.value);
+      const params = new URLSearchParams({
+        conf: confInput.value || "0.25",
+        iou: iouInput.value || "0.45",
+        imgsz: imgszInput.value || "640",
+        max_det: maxDetInput.value || "1000"
+      });
+
+      try {
+        setStatus("正在上传并推理...");
+        resultEl.value = "";
+        resultCanvas.style.display = "none";
+
+        const formData = new FormData();
+        formData.append("image", file, file.name);
+
+        const res = await fetch(`${predictUrl}?${params.toString()}`, {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`HTTP ${res.status} ${txt}`);
+        }
+
+        const data = await res.json();
+        resultEl.value = JSON.stringify(data, null, 2);
+        await renderImageWithBoxes(file, data.detections || []);
+        setStatus(`推理成功，检测数量: ${data.count}`);
+      } catch (err) {
+        setStatus(`调用失败: ${err.message}`, true);
+      }
+    });
+
+    configureNavigation();
+  </script>
+</body>
+
+</html>

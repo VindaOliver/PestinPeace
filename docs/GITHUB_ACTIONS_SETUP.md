@@ -10,10 +10,10 @@ Workflow file:
 
 Pipeline behavior on push to `main`:
 
-1. build Docker image from `.container_yolo26`
+1. build Docker image from `apps/api/container`
 2. push image to ACR
 3. update Azure Container App image
-4. call `/health` to verify deployment
+4. call `/health` and `/decision/weekly` (smoke) to verify deployment
 
 ## 1. Required GitHub Variables
 
@@ -79,10 +79,10 @@ Recommended:
 1. regenerate container context:
 
 ```powershell
-python package_yolo26_container.py --no-build
+python scripts/deploy/package_yolo26_container.py --no-build
 ```
 
-2. commit `.container_yolo26/model/best.pt` and related files
+2. commit `apps/api/container/model/best.pt` and related files
 3. push to `main`
 4. wait for Actions to finish
 
@@ -97,4 +97,4 @@ After workflow succeeds, verify:
 - wrong Azure login IDs (client/tenant/subscription) -> `azure/login` fails
 - no `AcrPush` role -> push to ACR denied
 - no `Contributor` on RG -> `az containerapp update` denied
-- model file missing in `.container_yolo26/model/best.pt` -> workflow validation fails
+- model file missing in `apps/api/container/model/best.pt` -> workflow validation fails

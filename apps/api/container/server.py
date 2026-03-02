@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
+import pickle
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from azure.data.tables import TableServiceClient
@@ -22,6 +24,9 @@ DEFAULT_CONF = float(os.getenv("DEFAULT_CONF", "0.25"))
 DEFAULT_IOU = float(os.getenv("DEFAULT_IOU", "0.45"))
 DEFAULT_IMGSZ = int(os.getenv("DEFAULT_IMGSZ", "640"))
 DEFAULT_MAX_DET = int(os.getenv("DEFAULT_MAX_DET", "1000"))
+TEPP_DEMO_MODEL_PATH = os.getenv("TEPP_DEMO_MODEL_PATH", "/app/model/tepp_demo_scope_model.pkl")
+TEPP_DEMO_META_PATH = os.getenv("TEPP_DEMO_META_PATH", "/app/model/tepp_demo_meta.json")
+TEPP_DEFAULT_RATE_KG_HA = float(os.getenv("TEPP_DEFAULT_RATE_KG_HA", "0.14"))
 
 BLOB_CONNECTION_STRING = os.getenv("BLOB_CONNECTION_STRING", "")
 BLOB_CONTAINER_IMAGES = os.getenv("BLOB_CONTAINER_IMAGES", "aphid-images")
@@ -38,7 +43,7 @@ if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
 model = YOLO(MODEL_PATH)
-app = FastAPI(title="Aphid YOLO26 Inference API", version="1.3.0")
+app = FastAPI(title="Aphid YOLO26 Inference API", version="1.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -100,6 +105,122 @@ class TelemetryIn(BaseModel):
     ts: datetime | None = None
 
 
+class WeeklyScopeDecisionIn(BaseModel):
+    aphid_count: int = Field(..., ge=0)
+    field_area_ha: float = Field(..., gt=0)
+    exposure_days: int = Field(default=7, ge=1, le=14)
+    week_start: date | None = None
+    prev_catch_rate: float | None = Field(default=None, ge=0)
+    catch_trend: float | None = None
+    t_mean: float = 15.0
+    rh_mean: float = Field(default=70.0, ge=0, le=100)
+    vpd_mean: float | None = Field(default=None, ge=0)
+    in_tepp_window: int | None = Field(default=None, ge=0, le=1)
+    apps_so_far: int = Field(default=0, ge=0, le=20)
+    respect_compliance_gate: bool = True
+
+
+tepp_model = None
+tepp_model_error = ""
+tepp_meta: dict[str, Any] = {}
+tepp_feature_cols: list[str] = [
+    "log_catch",
+    "catch_trend",
+    "T_mean",
+    "RH_mean",
+    "VPD_mean",
+    "doy_sin",
+    "doy_cos",
+    "in_tepp_window",
+    "apps_so_far",
+]
+tepp_teacher_q50 = 0.5
+tepp_teacher_q85 = 2.0
+tepp_treated_fraction_by_scope = {0: 0.0, 1: 0.3, 2: 1.0}
+tepp_water_by_scope = {0: 0, 1: 350, 2: 500}
+tepp_rate_kg_ha = TEPP_DEFAULT_RATE_KG_HA
+
+
+def _load_json_file(path: str) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        parsed = json.load(f)
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _normalize_scope_float_map(raw: Any, defaults: dict[int, float]) -> dict[int, float]:
+    merged = dict(defaults)
+    if not isinstance(raw, dict):
+        return merged
+    for k, v in raw.items():
+        try:
+            merged[int(k)] = float(v)
+        except (TypeError, ValueError):
+            continue
+    return merged
+
+
+def _normalize_scope_int_map(raw: Any, defaults: dict[int, int]) -> dict[int, int]:
+    merged = dict(defaults)
+    if not isinstance(raw, dict):
+        return merged
+    for k, v in raw.items():
+        try:
+            merged[int(k)] = int(v)
+        except (TypeError, ValueError):
+            continue
+    return merged
+
+
+def _init_tepp_demo_assets() -> None:
+    global tepp_model, tepp_model_error, tepp_meta
+    global tepp_feature_cols, tepp_teacher_q50, tepp_teacher_q85
+    global tepp_treated_fraction_by_scope, tepp_water_by_scope, tepp_rate_kg_ha
+
+    tepp_model = None
+    tepp_model_error = ""
+    tepp_meta = {}
+
+    if os.path.exists(TEPP_DEMO_META_PATH):
+        try:
+            tepp_meta = _load_json_file(TEPP_DEMO_META_PATH)
+            feature_cols = tepp_meta.get("feature_cols")
+            if isinstance(feature_cols, list) and all(isinstance(c, str) for c in feature_cols):
+                tepp_feature_cols = feature_cols
+            teacher_quantiles = tepp_meta.get("teacher_quantiles", {})
+            if isinstance(teacher_quantiles, dict):
+                tepp_teacher_q50 = float(teacher_quantiles.get("q50", tepp_teacher_q50))
+                tepp_teacher_q85 = float(teacher_quantiles.get("q85", tepp_teacher_q85))
+            tepp_treated_fraction_by_scope = _normalize_scope_float_map(
+                tepp_meta.get("treated_fraction_by_scope"),
+                tepp_treated_fraction_by_scope,
+            )
+            tepp_water_by_scope = _normalize_scope_int_map(
+                tepp_meta.get("water_by_scope_L_ha"),
+                tepp_water_by_scope,
+            )
+            tepp_rate_kg_ha = float(tepp_meta.get("tepp_rate_kg_ha", tepp_rate_kg_ha))
+        except Exception as exc:
+            tepp_model_error = f"Meta load failed: {exc}"
+
+    if not os.path.exists(TEPP_DEMO_MODEL_PATH):
+        if not tepp_model_error:
+            tepp_model_error = f"Decision model not found: {TEPP_DEMO_MODEL_PATH}"
+        return
+
+    try:
+        with open(TEPP_DEMO_MODEL_PATH, "rb") as f:
+            tepp_model = pickle.load(f)
+    except Exception as exc:
+        tepp_model = None
+        if tepp_model_error:
+            tepp_model_error = f"{tepp_model_error}; model load failed: {exc}"
+        else:
+            tepp_model_error = f"Model load failed: {exc}"
+
+
+_init_tepp_demo_assets()
+
+
 def _utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
@@ -152,6 +273,104 @@ def _check_iot_api_key(x_api_key: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key.")
 
 
+def _vpd_kpa(t_c: float, rh_pct: float) -> float:
+    es = 0.6108 * math.exp((17.27 * t_c) / (t_c + 237.3))
+    ea = es * (rh_pct / 100.0)
+    return max(es - ea, 0.0)
+
+
+def _resolve_doy(week_start: date | None) -> int:
+    d = week_start if week_start is not None else datetime.now(timezone.utc).date()
+    return d.timetuple().tm_yday
+
+
+def _resolve_tepp_window(week_start_doy: int, in_tepp_window: int | None) -> int:
+    if in_tepp_window is not None:
+        return 1 if int(in_tepp_window) == 1 else 0
+    return 1 if 135 <= week_start_doy <= 260 else 0
+
+
+def _build_tepp_feature_map(payload: WeeklyScopeDecisionIn) -> dict[str, float]:
+    catch_rate = float(payload.aphid_count) / float(payload.exposure_days)
+    catch_trend = (
+        float(payload.catch_trend)
+        if payload.catch_trend is not None
+        else (catch_rate - float(payload.prev_catch_rate) if payload.prev_catch_rate is not None else 0.0)
+    )
+    doy = _resolve_doy(payload.week_start)
+    in_tepp_window = _resolve_tepp_window(doy, payload.in_tepp_window)
+    vpd = float(payload.vpd_mean) if payload.vpd_mean is not None else _vpd_kpa(float(payload.t_mean), float(payload.rh_mean))
+
+    return {
+        "catch_rate": catch_rate,
+        "log_catch": math.log1p(catch_rate),
+        "catch_trend": catch_trend,
+        "T_mean": float(payload.t_mean),
+        "RH_mean": float(payload.rh_mean),
+        "VPD_mean": float(vpd),
+        "doy_sin": math.sin(2.0 * math.pi * doy / 365.25),
+        "doy_cos": math.cos(2.0 * math.pi * doy / 365.25),
+        "in_tepp_window": float(in_tepp_window),
+        "apps_so_far": float(payload.apps_so_far),
+        "doy": float(doy),
+    }
+
+
+def _scope_name(scope_class: int) -> str:
+    if scope_class == 1:
+        return "boundary_band"
+    if scope_class == 2:
+        return "full_field"
+    return "no_spray"
+
+
+def _tepp_model_proba_map(features: list[float]) -> dict[str, float] | None:
+    if tepp_model is None or not hasattr(tepp_model, "predict_proba"):
+        return None
+    try:
+        proba = tepp_model.predict_proba([features])[0]
+    except Exception:
+        return None
+
+    classes_raw = getattr(tepp_model, "classes_", None)
+    if classes_raw is None and hasattr(tepp_model, "named_steps"):
+        clf = tepp_model.named_steps.get("clf")
+        if clf is not None:
+            classes_raw = getattr(clf, "classes_", None)
+    if classes_raw is None:
+        return None
+
+    class_probs: dict[str, float] = {}
+    for idx, c in enumerate(classes_raw):
+        if idx >= len(proba):
+            continue
+        class_probs[str(int(c))] = float(proba[idx])
+    return class_probs
+
+
+def _infer_scope_by_model(features: list[float]) -> int | None:
+    if tepp_model is None:
+        return None
+    try:
+        predicted = tepp_model.predict([features])[0]
+        return int(predicted)
+    except Exception:
+        return None
+
+
+def _infer_scope_by_teacher_rule(feature_map: dict[str, float]) -> int:
+    catch_rate = feature_map["catch_rate"]
+    scope_class = 0
+    if catch_rate >= tepp_teacher_q85:
+        scope_class = 2
+    elif catch_rate >= tepp_teacher_q50:
+        scope_class = 1
+
+    if scope_class == 1 and feature_map["catch_trend"] > 0.8 and feature_map["T_mean"] > 14:
+        scope_class = 2
+    return scope_class
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
@@ -166,6 +385,10 @@ def health() -> dict[str, Any]:
         "history_error": blob_history_error or None,
         "telemetry_enabled": telemetry_table is not None,
         "telemetry_init_error": telemetry_init_error or None,
+        "tepp_demo_model_enabled": tepp_model is not None,
+        "tepp_demo_model_path": TEPP_DEMO_MODEL_PATH,
+        "tepp_demo_meta_path": TEPP_DEMO_META_PATH,
+        "tepp_demo_model_error": tepp_model_error or None,
     }
 
 
@@ -373,6 +596,83 @@ def telemetry_latest(
             break
 
     return {"device_id": device_id, "count": len(items), "items": items}
+
+
+@app.post("/decision/weekly")
+def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
+    feature_map = _build_tepp_feature_map(payload)
+    feature_values = [float(feature_map.get(c, 0.0)) for c in tepp_feature_cols]
+
+    predicted_scope = _infer_scope_by_model(feature_values)
+    model_source = "tepp_demo_scope_model"
+    class_probabilities = _tepp_model_proba_map(feature_values)
+    if predicted_scope is None:
+        predicted_scope = _infer_scope_by_teacher_rule(feature_map)
+        model_source = "teacher_rule_fallback"
+        class_probabilities = None
+
+    scope_before_gate = int(predicted_scope)
+    gate_applied = False
+    gate_reason = None
+    in_tepp_window = int(feature_map["in_tepp_window"])
+
+    if payload.respect_compliance_gate:
+        if in_tepp_window != 1:
+            predicted_scope = 0
+            gate_applied = True
+            gate_reason = "Outside Teppeki application window."
+        elif payload.apps_so_far >= 1:
+            predicted_scope = 0
+            gate_applied = True
+            gate_reason = "Maximum application count reached (>= 1)."
+
+    scope_class = int(max(0, min(2, predicted_scope)))
+    treated_fraction = float(tepp_treated_fraction_by_scope.get(scope_class, 0.0))
+    water_l_ha = int(tepp_water_by_scope.get(scope_class, 0))
+    product_kg = float(tepp_rate_kg_ha * payload.field_area_ha * treated_fraction)
+    spray_l = float(water_l_ha * payload.field_area_ha * treated_fraction)
+
+    response: dict[str, Any] = {
+        "scope_class": scope_class,
+        "scope_name": _scope_name(scope_class),
+        "treated_fraction": treated_fraction,
+        "water_l_ha": water_l_ha,
+        "product_kg": round(product_kg, 4),
+        "spray_l": round(spray_l, 2),
+        "inputs": {
+            "aphid_count": payload.aphid_count,
+            "field_area_ha": payload.field_area_ha,
+            "exposure_days": payload.exposure_days,
+            "catch_rate": round(feature_map["catch_rate"], 4),
+            "catch_trend": round(feature_map["catch_trend"], 4),
+            "t_mean": round(feature_map["T_mean"], 3),
+            "rh_mean": round(feature_map["RH_mean"], 3),
+            "vpd_mean": round(feature_map["VPD_mean"], 4),
+            "week_start_doy": int(feature_map["doy"]),
+            "in_tepp_window": in_tepp_window,
+            "apps_so_far": payload.apps_so_far,
+        },
+        "compliance": {
+            "respect_compliance_gate": payload.respect_compliance_gate,
+            "scope_before_gate": scope_before_gate,
+            "gate_applied": gate_applied,
+            "gate_reason": gate_reason,
+            "max_apps_allowed": 1,
+        },
+        "model": {
+            "source": model_source,
+            "loaded": tepp_model is not None,
+            "feature_cols": tepp_feature_cols,
+            "teacher_quantiles": {"q50": tepp_teacher_q50, "q85": tepp_teacher_q85},
+            "class_probabilities": class_probabilities,
+            "error": tepp_model_error or None,
+        },
+        "label_constraints": {
+            "tepp_rate_kg_ha": tepp_rate_kg_ha,
+            "water_range_l_ha": [200, 500],
+        },
+    }
+    return response
 
 
 @app.get("/telemetry/dashboard")

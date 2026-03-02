@@ -42,20 +42,22 @@ jobs:
       - name: Sync web pages into docker context
         shell: bash
         run: |
-          cp web_pages/telemetry_dashboard.html .container_yolo26/telemetry_dashboard.html
-          cp web_pages/local_web_client.html .container_yolo26/local_web_client.html
-          cp web_pages/history_records.html .container_yolo26/history_records.html
+          cp apps/web/web_pages/telemetry_dashboard.html apps/api/container/telemetry_dashboard.html
+          cp apps/web/web_pages/local_web_client.html apps/api/container/local_web_client.html
+          cp apps/web/web_pages/history_records.html apps/api/container/history_records.html
 
       - name: Validate docker context files
         shell: bash
         run: |
-          test -f .container_yolo26/Dockerfile
-          test -f .container_yolo26/requirements.txt
-          test -f .container_yolo26/server.py
-          test -f .container_yolo26/telemetry_dashboard.html
-          test -f .container_yolo26/local_web_client.html
-          test -f .container_yolo26/history_records.html
-          test -f .container_yolo26/model/best.pt
+          test -f apps/api/container/Dockerfile
+          test -f apps/api/container/requirements.txt
+          test -f apps/api/container/server.py
+          test -f apps/api/container/telemetry_dashboard.html
+          test -f apps/api/container/local_web_client.html
+          test -f apps/api/container/history_records.html
+          test -f apps/api/container/model/best.pt
+          test -f apps/api/container/model/tepp_demo_scope_model.pkl
+          test -f apps/api/container/model/tepp_demo_meta.json
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -72,7 +74,7 @@ jobs:
           IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_REPO}:${IMAGE_TAG}"
           IMAGE_LATEST="${ACR_NAME}.azurecr.io/${IMAGE_REPO}:latest"
 
-          docker build --platform linux/amd64 -t "$IMAGE" -t "$IMAGE_LATEST" .container_yolo26
+          docker build --platform linux/amd64 -t "$IMAGE" -t "$IMAGE_LATEST" apps/api/container
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"
 
@@ -99,6 +101,13 @@ jobs:
         shell: bash
         run: |
           curl -f "https://${FQDN}/health"
+
+      - name: Weekly decision smoke test
+        shell: bash
+        run: |
+          curl -f -X POST "https://${FQDN}/decision/weekly" \
+            -H "Content-Type: application/json" \
+            -d '{"aphid_count":2,"field_area_ha":1.0}'
 
       - name: Summary
         shell: bash

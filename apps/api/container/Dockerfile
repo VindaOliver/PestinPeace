@@ -10,7 +10,7 @@ COPY server.py /app/server.py
 COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY local_web_client.html /app/local_web_client.html
 COPY history_records.html /app/history_records.html
-COPY model/best.pt /app/model/best.pt
+COPY model /app/model
 
 EXPOSE 8000
 ENV MODEL_PATH=/app/model/best.pt

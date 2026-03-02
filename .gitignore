@@ -17,10 +17,12 @@ Thumbs.db
 # Training datasets and outputs
 data/
 runs/
-train_yolo26.py
-continue_train_yolo26.py
-data.yaml
-yolo26n.pt
+ml/yolo/train_yolo26.py
+ml/yolo/continue_train_yolo26.py
+ml/yolo/data.yaml
+ml/yolo/yolo26n.pt
+ml/yolo/runs/
+build/
 
 # Local runtime outputs
 *.log
@@ -29,3 +31,6 @@ yolo26n.pt
 # Optional local-only secrets
 .env
 .env.*
+
+# Local external clone (do not push)
+RickyPart/

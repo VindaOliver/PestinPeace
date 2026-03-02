@@ -25,7 +25,7 @@ COPY server.py /app/server.py
 COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY local_web_client.html /app/local_web_client.html
 COPY history_records.html /app/history_records.html
-COPY model/best.pt /app/model/best.pt
+COPY model /app/model
 
 EXPOSE 8000
 ENV MODEL_PATH=/app/model/best.pt
@@ -40,6 +40,7 @@ pillow==11.0.0
 ultralytics==8.3.50
 azure-storage-blob==12.24.0
 azure-data-tables==12.5.0
+scikit-learn==1.5.2
 """
 
 
@@ -49,33 +50,38 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default="runs/detect/runs/train/yolo26_aphid_count3/weights/best.pt",
+        default="apps/api/container/model/best.pt",
         help="Path to trained model checkpoint (.pt).",
     )
     parser.add_argument(
         "--context-dir",
-        default=".container_yolo26",
+        default="build/container_context",
         help="Output directory for Docker build context.",
     )
     parser.add_argument(
         "--server-template",
-        default=".container_yolo26/server.py",
+        default="apps/api/container/server.py",
         help="Template server.py path to copy into build context.",
     )
     parser.add_argument(
         "--telemetry-dashboard-template",
-        default="web_pages/telemetry_dashboard.html",
+        default="apps/web/web_pages/telemetry_dashboard.html",
         help="Template telemetry dashboard HTML path to copy into build context.",
     )
     parser.add_argument(
         "--predict-web-template",
-        default="web_pages/local_web_client.html",
+        default="apps/web/web_pages/local_web_client.html",
         help="Template predict web client HTML path to copy into build context.",
     )
     parser.add_argument(
         "--history-web-template",
-        default="web_pages/history_records.html",
+        default="apps/web/web_pages/history_records.html",
         help="Template history records HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--model-dir",
+        default="apps/api/container/model",
+        help="Directory with model artifacts to copy into context (best.pt and optional demo artifacts).",
     )
     parser.add_argument(
         "--image-tag",
@@ -112,35 +118,44 @@ def _resolve_model_path(model_path: Path) -> Path:
     raise FileNotFoundError(f"Model not found: {model_path}")
 
 
-def _resolve_template_path(path_str: str, script_dir: Path) -> Path:
+def _resolve_template_path(path_str: str, script_dir: Path, repo_root: Path) -> Path:
     p = Path(path_str)
     if p.is_absolute():
         return p
+    if p.exists():
+        return p
+    candidate = repo_root / p
+    if candidate.exists():
+        return candidate
     return script_dir / p
 
 
 def main() -> None:
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
+    repo_root = script_dir.parent.parent
 
     model_path = _resolve_model_path(Path(args.model))
+    model_dir = _resolve_template_path(args.model_dir, script_dir, repo_root)
+    if not model_dir.exists() or not model_dir.is_dir():
+        raise FileNotFoundError(f"Model directory not found: {model_dir}")
 
-    server_template_path = _resolve_template_path(args.server_template, script_dir)
+    server_template_path = _resolve_template_path(args.server_template, script_dir, repo_root)
     if not server_template_path.exists():
         raise FileNotFoundError(f"Server template not found: {server_template_path}")
     server_code = server_template_path.read_text(encoding="utf-8")
 
-    telemetry_dashboard_template_path = _resolve_template_path(args.telemetry_dashboard_template, script_dir)
+    telemetry_dashboard_template_path = _resolve_template_path(args.telemetry_dashboard_template, script_dir, repo_root)
     if not telemetry_dashboard_template_path.exists():
         raise FileNotFoundError(f"Telemetry dashboard template not found: {telemetry_dashboard_template_path}")
     telemetry_dashboard_code = telemetry_dashboard_template_path.read_text(encoding="utf-8")
 
-    predict_web_template_path = _resolve_template_path(args.predict_web_template, script_dir)
+    predict_web_template_path = _resolve_template_path(args.predict_web_template, script_dir, repo_root)
     if not predict_web_template_path.exists():
         raise FileNotFoundError(f"Predict web template not found: {predict_web_template_path}")
     predict_web_code = predict_web_template_path.read_text(encoding="utf-8")
 
-    history_web_template_path = _resolve_template_path(args.history_web_template, script_dir)
+    history_web_template_path = _resolve_template_path(args.history_web_template, script_dir, repo_root)
     if not history_web_template_path.exists():
         raise FileNotFoundError(f"History web template not found: {history_web_template_path}")
     history_web_code = history_web_template_path.read_text(encoding="utf-8")
@@ -155,11 +170,13 @@ def main() -> None:
     _write_text(context_dir / "history_records.html", history_web_code)
     _write_text(context_dir / "Dockerfile", DOCKERFILE_CODE)
     _write_text(context_dir / "requirements.txt", REQUIREMENTS_CODE)
-    (context_dir / "model").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(model_path, context_dir / "model" / "best.pt")
+    shutil.copytree(model_dir, context_dir / "model", dirs_exist_ok=True)
+    if not (context_dir / "model" / "best.pt").exists():
+        shutil.copy2(model_path, context_dir / "model" / "best.pt")
 
     print(f"[ok] Docker context generated at: {context_dir.resolve()}")
     print(f"[ok] Model copied from: {model_path.resolve()}")
+    print(f"[ok] Model directory copied from: {model_dir.resolve()}")
     print(f"[ok] server.py template: {server_template_path.resolve()}")
     print(f"[ok] telemetry dashboard template: {telemetry_dashboard_template_path.resolve()}")
     print(f"[ok] predict web template: {predict_web_template_path.resolve()}")

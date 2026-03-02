@@ -6,6 +6,7 @@ This project provides:
 2. IoT telemetry ingest/query APIs (`/telemetry`, `/telemetry/latest`)
 3. Prediction history storage in Blob (`aphid-history`) with query API (`/history`)
 4. Web pages for Predict / Monitor / History
+5. Weekly demo spray-scope decision API with compliance gate (`/decision/weekly`)
 
 ## 1. Live Service
 
@@ -94,13 +95,45 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 - Telemetry dashboard: `GET /telemetry/dashboard`
 - History dashboard: `GET /history/dashboard`
 
+### 2.7 Weekly Decision (Demo Scope Model)
+
+- `POST /decision/weekly`
+- Content type: `application/json`
+- Required fields:
+  - `aphid_count`
+  - `field_area_ha`
+- Optional fields:
+  - `exposure_days` (default `7`)
+  - `week_start` (YYYY-MM-DD; used for season encoding/window inference)
+  - `prev_catch_rate` or `catch_trend`
+  - `t_mean`, `rh_mean`, `vpd_mean`
+  - `in_tepp_window` (`0/1`; if omitted, inferred by day-of-year)
+  - `apps_so_far` (default `0`)
+  - `respect_compliance_gate` (default `true`)
+
+Response includes:
+
+- `scope_class` (`0=no_spray`, `1=boundary_band`, `2=full_field`)
+- `treated_fraction` and `water_l_ha`
+- `product_kg = 0.14 * area_ha * treated_fraction`
+- `spray_l = water_l_ha * area_ha * treated_fraction`
+- compliance gate result and model source (`tepp_demo_scope_model` or fallback rule)
+
+Example:
+
+```bash
+curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/decision/weekly" \
+  -H "Content-Type: application/json" \
+  -d "{\"aphid_count\":18,\"field_area_ha\":2.0,\"exposure_days\":7,\"t_mean\":16.4,\"rh_mean\":72,\"apps_so_far\":0}"
+```
+
 ## 3. Local Web Pages
 
 Web pages are under:
 
-- `web_pages/local_web_client.html` (Predict)
-- `web_pages/telemetry_dashboard.html` (Monitor)
-- `web_pages/history_records.html` (History)
+- `apps/web/web_pages/local_web_client.html` (Predict)
+- `apps/web/web_pages/telemetry_dashboard.html` (Monitor)
+- `apps/web/web_pages/history_records.html` (History)
 
 Run local static server from repo root:
 
@@ -110,11 +143,24 @@ python -m http.server 18090
 
 Open:
 
-- `http://127.0.0.1:18090/web_pages/local_web_client.html`
-- `http://127.0.0.1:18090/web_pages/telemetry_dashboard.html`
-- `http://127.0.0.1:18090/web_pages/history_records.html`
+- `http://127.0.0.1:18090/apps/web/web_pages/local_web_client.html`
+- `http://127.0.0.1:18090/apps/web/web_pages/telemetry_dashboard.html`
+- `http://127.0.0.1:18090/apps/web/web_pages/history_records.html`
 
 Top navigation is linked across all three pages.
+
+## 3.1 Project Layout (Industry-style)
+
+- `apps/api/container/`: FastAPI service, Dockerfile, runtime model artifacts
+- `apps/web/web_pages/`: static dashboards for predict/telemetry/history
+- `ml/yolo/`: YOLO training scripts/config/base checkpoint
+- `ml/tepp/`: synthetic weekly decision model training script
+- `scripts/deploy/`: deployment and packaging scripts
+- `clients/raspberry_pi/`: Python client utilities for device-side integration
+- `docs/`: operational and workflow documentation
+- `third_party/`: vendor/external code (kept separate)
+
+Detailed structure note: `docs/PROJECT_STRUCTURE.md`.
 
 ## 4. Azure Resources (Current)
 
@@ -150,7 +196,7 @@ Trigger:
 Pipeline:
 
 1. Checkout
-2. Sync `web_pages/*.html` into `.container_yolo26/`
+2. Sync `apps/web/web_pages/*.html` into `apps/api/container/`
 3. Build Docker image
 4. Push image to ACR
 5. Update Container App image
@@ -159,25 +205,30 @@ Pipeline:
 ## 7. Update Model
 
 1. Replace model:
-   - `.container_yolo26/model/best.pt`
-2. Commit and push:
+   - `apps/api/container/model/best.pt`
+2. Optional demo decision artifacts (for `/decision/weekly` model mode):
+   - `apps/api/container/model/tepp_demo_scope_model.pkl`
+   - `apps/api/container/model/tepp_demo_meta.json`
+3. Commit and push:
    - `git add .`
    - `git commit -m "Update model"`
    - `git push origin main`
-3. Wait for workflow success.
-4. Verify `/health` and `/predict`.
+4. Wait for workflow success.
+5. Verify `/health`, `/predict`, and `/decision/weekly`.
 
 ## 8. Key Files
 
-- `.container_yolo26/server.py`
-- `.container_yolo26/Dockerfile`
-- `.container_yolo26/requirements.txt`
-- `.container_yolo26/model/best.pt`
-- `web_pages/local_web_client.html`
-- `web_pages/telemetry_dashboard.html`
-- `web_pages/history_records.html`
-- `package_yolo26_container.py`
-- `deploy_to_azure.ps1`
+- `apps/api/container/server.py`
+- `apps/api/container/Dockerfile`
+- `apps/api/container/requirements.txt`
+- `apps/api/container/model/best.pt`
+- `apps/api/container/model/tepp_demo_scope_model.pkl` (optional)
+- `apps/api/container/model/tepp_demo_meta.json` (optional)
+- `apps/web/web_pages/local_web_client.html`
+- `apps/web/web_pages/telemetry_dashboard.html`
+- `apps/web/web_pages/history_records.html`
+- `scripts/deploy/package_yolo26_container.py`
+- `scripts/deploy/deploy_to_azure.ps1`
 - `.github/workflows/deploy_containerapp.yml`
 
 ## 9. Troubleshooting
@@ -195,3 +246,39 @@ Pipeline:
    - If `IOT_API_KEY` is configured, send `X-API-Key`
 5. `/telemetry` 503
    - Check `AZURE_STORAGE_CONNECTION_STRING` and `TELEMETRY_TABLE`
+6. `/decision/weekly` always returns fallback source
+   - Check `tepp_demo_model_enabled` and `tepp_demo_model_error` in `/health`
+   - Ensure `scikit-learn` is installed and model file exists at `TEPP_DEMO_MODEL_PATH`
+7. `/decision/weekly` always returns `scope_class=0`
+   - Check `in_tepp_window` and `apps_so_far` in request
+   - Compliance gate enforces window + max application count
+
+## 10. Raspberry Pi Capture -> `/predict` Integration
+
+The folder `third_party/PestInPeace_rashberrypi` is now wired to call this project's
+YOLO API endpoint (`POST /predict`) instead of uploading images directly to Azure Blob.
+
+### What changed
+
+- `third_party/PestInPeace_rashberrypi/src/uploader.cpp`
+  - Replaced Blob SAS upload with `curl -X POST ... -F image=@...` to `/predict`
+  - Added runtime endpoint override via env var `PREDICT_URL`
+- `third_party/PestInPeace_rashberrypi/include/uploader.hpp`
+  - Function changed from `upload_to_azure(...)` to `upload_to_predict(...)`
+- `third_party/PestInPeace_rashberrypi/src/camera.cpp`
+  - Camera loop now sends each captured image to `/predict`
+
+### Build and run on Raspberry Pi
+
+```bash
+cd third_party/PestInPeace_rashberrypi
+export PREDICT_URL="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict"
+make clean && make
+sudo ./iot_app
+```
+
+### Notes
+
+- If `PREDICT_URL` is not set, a default URL is used in `src/uploader.cpp`.
+- The `/predict` API already saves image/history in this project, so no extra Blob upload
+  code is needed on the Raspberry Pi side.
