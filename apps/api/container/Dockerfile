@@ -10,6 +10,7 @@ COPY server.py /app/server.py
 COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY local_web_client.html /app/local_web_client.html
 COPY history_records.html /app/history_records.html
+COPY decision_dashboard.html /app/decision_dashboard.html
 COPY model /app/model
 
 EXPOSE 8000

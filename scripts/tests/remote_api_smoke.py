@@ -107,7 +107,7 @@ def main() -> int:
         checks.append(CheckResult("health_ok_flag", j.get("status") == "ok", f"status={j.get('status')}"))
 
     # 2) dashboards
-    for p in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard"]:
+    for p in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard"]:
         rr = requests.get(f"{base}{p}", timeout=30)
         report["responses"][p] = {"status_code": rr.status_code}
         expect_status(checks, f"{p}_status", rr.status_code, {200})

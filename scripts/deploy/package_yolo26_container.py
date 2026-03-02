@@ -25,6 +25,7 @@ COPY server.py /app/server.py
 COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY local_web_client.html /app/local_web_client.html
 COPY history_records.html /app/history_records.html
+COPY decision_dashboard.html /app/decision_dashboard.html
 COPY model /app/model
 
 EXPOSE 8000
@@ -77,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         "--history-web-template",
         default="apps/web/web_pages/history_records.html",
         help="Template history records HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--decision-web-template",
+        default="apps/web/web_pages/decision_dashboard.html",
+        help="Template decision dashboard HTML path to copy into build context.",
     )
     parser.add_argument(
         "--model-dir",
@@ -160,6 +166,11 @@ def main() -> None:
         raise FileNotFoundError(f"History web template not found: {history_web_template_path}")
     history_web_code = history_web_template_path.read_text(encoding="utf-8")
 
+    decision_web_template_path = _resolve_template_path(args.decision_web_template, script_dir, repo_root)
+    if not decision_web_template_path.exists():
+        raise FileNotFoundError(f"Decision web template not found: {decision_web_template_path}")
+    decision_web_code = decision_web_template_path.read_text(encoding="utf-8")
+
     context_dir = Path(args.context_dir)
     if context_dir.exists():
         shutil.rmtree(context_dir)
@@ -168,6 +179,7 @@ def main() -> None:
     _write_text(context_dir / "telemetry_dashboard.html", telemetry_dashboard_code)
     _write_text(context_dir / "local_web_client.html", predict_web_code)
     _write_text(context_dir / "history_records.html", history_web_code)
+    _write_text(context_dir / "decision_dashboard.html", decision_web_code)
     _write_text(context_dir / "Dockerfile", DOCKERFILE_CODE)
     _write_text(context_dir / "requirements.txt", REQUIREMENTS_CODE)
     shutil.copytree(model_dir, context_dir / "model", dirs_exist_ok=True)
@@ -181,6 +193,7 @@ def main() -> None:
     print(f"[ok] telemetry dashboard template: {telemetry_dashboard_template_path.resolve()}")
     print(f"[ok] predict web template: {predict_web_template_path.resolve()}")
     print(f"[ok] history web template: {history_web_template_path.resolve()}")
+    print(f"[ok] decision web template: {decision_web_template_path.resolve()}")
 
     if not args.build:
         print("[skip] Docker build disabled.")

@@ -115,6 +115,7 @@ def main() -> int:
     module.PREDICT_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "local_web_client.html").resolve())
     module.TELEMETRY_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "telemetry_dashboard.html").resolve())
     module.HISTORY_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "history_records.html").resolve())
+    module.DECISION_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "decision_dashboard.html").resolve())
 
     client = TestClient(module.app)
     checks: list[CheckResult] = []
@@ -136,7 +137,7 @@ def main() -> int:
         )
 
     # 2) Dashboards
-    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard"]:
+    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard"]:
         rr = client.get(path)
         report["responses"][path] = {"status_code": rr.status_code}
         _expect_status(checks, f"{path}_status", rr.status_code, 200)

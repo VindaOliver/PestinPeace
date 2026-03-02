@@ -45,6 +45,7 @@ jobs:
           cp apps/web/web_pages/telemetry_dashboard.html apps/api/container/telemetry_dashboard.html
           cp apps/web/web_pages/local_web_client.html apps/api/container/local_web_client.html
           cp apps/web/web_pages/history_records.html apps/api/container/history_records.html
+          cp apps/web/web_pages/decision_dashboard.html apps/api/container/decision_dashboard.html
 
       - name: Validate docker context files
         shell: bash
@@ -55,6 +56,7 @@ jobs:
           test -f apps/api/container/telemetry_dashboard.html
           test -f apps/api/container/local_web_client.html
           test -f apps/api/container/history_records.html
+          test -f apps/api/container/decision_dashboard.html
           test -f apps/api/container/model/best.pt
           test -f apps/api/container/model/tepp_demo_scope_model.pkl
           test -f apps/api/container/model/tepp_demo_meta.json

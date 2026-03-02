@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>喷药策略测试</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-start: #e8f0fe;
+      --bg-end: #f0f4f8;
+      --card: rgba(255, 255, 255, 0.65);
+      --card-border: rgba(255, 255, 255, 0.45);
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #0d9488;
+      --accent-dark: #0f766e;
+      --accent-glow: rgba(13, 148, 136, 0.35);
+      --gradient-btn: linear-gradient(135deg, #0d9488, #065f46);
+      --gradient-btn-hover: linear-gradient(135deg, #14b8a6, #0d9488);
+      --secondary: #475569;
+      --danger: #dc2626;
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", "Noto Sans SC", sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+      padding: 32px 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.35;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    body::before {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, #5eead4 0%, transparent 70%);
+      top: -120px;
+      left: -80px;
+      animation: blobDrift 18s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, #a78bfa 0%, transparent 70%);
+      bottom: -100px;
+      right: -60px;
+      animation: blobDrift 22s ease-in-out infinite alternate-reverse;
+    }
+
+    @keyframes blobDrift {
+      0% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      50% {
+        transform: translate(40px, -30px) scale(1.08);
+      }
+
+      100% {
+        transform: translate(-20px, 20px) scale(0.95);
+      }
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1060px;
+      margin: 0 auto;
+      background: var(--card);
+      backdrop-filter: blur(24px) saturate(1.6);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04);
+      animation: fadeSlideUp 0.6s ease-out both;
+    }
+
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .top-nav {
+      display: inline-flex;
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 18px;
+      border-radius: 11px;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--muted);
+      background: transparent;
+      transition: all 0.25s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .nav-btn.active {
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13.5px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input,
+    select {
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text);
+      transition: all 0.25s ease;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3.5px var(--accent-glow);
+    }
+
+    .check-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .check-field input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.25s ease;
+      letter-spacing: 0.01em;
+    }
+
+    button:hover {
+      background: var(--gradient-btn-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    .secondary {
+      background: linear-gradient(135deg, #64748b, #475569);
+      box-shadow: 0 4px 14px rgba(71, 85, 105, 0.25);
+    }
+
+    .secondary:hover {
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+    }
+
+    .status {
+      font-size: 13px;
+      margin: 4px 0 16px 0;
+      color: var(--muted);
+      font-weight: 500;
+      min-height: 18px;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.5);
+      padding: 14px;
+    }
+
+    .card-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12.5px;
+      line-height: 1.45;
+      background: rgba(255, 255, 255, 0.72);
+      color: #0b1020;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3.5px var(--accent-glow);
+      outline: none;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .cards {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 16px 12px;
+      }
+
+      .wrap {
+        padding: 20px;
+        border-radius: 16px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top-nav">
+      <a id="predictNav" class="nav-btn" href="#">预测</a>
+      <a id="telemetryNav" class="nav-btn" href="#">监测</a>
+      <a id="historyNav" class="nav-btn" href="#">历史</a>
+      <a class="nav-btn active" href="#">喷药策略</a>
+    </div>
+
+    <h1>Weekly Spray Strategy Demo</h1>
+    <div class="subtitle">调用 <code>/decision/weekly</code>，输出 scope、water、product_kg 和 spray_l。</div>
+
+    <div class="grid">
+      <div class="field" style="grid-column: 1 / -1;">
+        <label for="endpoint">Decision Endpoint (base URL or /decision/weekly)</label>
+        <input id="endpoint" type="text"
+          value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/decision/weekly" />
+      </div>
+
+      <div class="field">
+        <label for="aphidCount">aphid_count</label>
+        <input id="aphidCount" type="number" step="1" min="0" value="18" />
+      </div>
+      <div class="field">
+        <label for="fieldArea">field_area_ha</label>
+        <input id="fieldArea" type="number" step="0.1" min="0.1" value="2.0" />
+      </div>
+      <div class="field">
+        <label for="exposureDays">exposure_days</label>
+        <input id="exposureDays" type="number" step="1" min="1" max="14" value="7" />
+      </div>
+
+      <div class="field">
+        <label for="weekStart">week_start</label>
+        <input id="weekStart" type="date" value="2026-06-01" />
+      </div>
+      <div class="field">
+        <label for="prevCatchRate">prev_catch_rate (optional)</label>
+        <input id="prevCatchRate" type="number" step="0.01" min="0" placeholder="optional" />
+      </div>
+      <div class="field">
+        <label for="catchTrend">catch_trend (optional)</label>
+        <input id="catchTrend" type="number" step="0.01" placeholder="optional" />
+      </div>
+
+      <div class="field">
+        <label for="tMean">t_mean</label>
+        <input id="tMean" type="number" step="0.1" value="16.4" />
+      </div>
+      <div class="field">
+        <label for="rhMean">rh_mean</label>
+        <input id="rhMean" type="number" step="0.1" min="0" max="100" value="72.0" />
+      </div>
+      <div class="field">
+        <label for="vpdMean">vpd_mean (optional)</label>
+        <input id="vpdMean" type="number" step="0.01" min="0" placeholder="optional" />
+      </div>
+
+      <div class="field">
+        <label for="inWindow">in_tepp_window</label>
+        <select id="inWindow">
+          <option value="" selected>auto by week_start</option>
+          <option value="1">1</option>
+          <option value="0">0</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="appsSoFar">apps_so_far</label>
+        <input id="appsSoFar" type="number" step="1" min="0" value="0" />
+      </div>
+      <div class="field check-field">
+        <input id="respectGate" type="checkbox" checked />
+        <label for="respectGate" style="margin: 0; text-transform: none; letter-spacing: 0;">respect_compliance_gate</label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="runBtn">运行策略测试</button>
+      <button id="sampleBtn" class="secondary">填充高风险样例</button>
+      <button id="healthBtn" class="secondary">检查 Health</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">scope_class</div>
+        <div class="card-value" id="scopeClass">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">scope_name</div>
+        <div class="card-value" id="scopeName">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">product_kg</div>
+        <div class="card-value" id="productKg">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">spray_l</div>
+        <div class="card-value" id="sprayL">-</div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 0;">
+      <div class="card">
+        <div class="card-label">water_l_ha</div>
+        <div class="card-value" id="waterLha">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">treated_fraction</div>
+        <div class="card-value" id="treatedFraction">-</div>
+      </div>
+      <div class="card" style="grid-column: span 2;">
+        <div class="card-label">gate_reason</div>
+        <div class="card-value" id="gateReason" style="font-size: 16px; line-height: 1.35;">-</div>
+      </div>
+    </div>
+
+    <textarea id="result" readonly placeholder="Decision JSON will appear here..."></textarea>
+  </div>
+
+  <script>
+    const predictNav = document.getElementById("predictNav");
+    const telemetryNav = document.getElementById("telemetryNav");
+    const historyNav = document.getElementById("historyNav");
+
+    const endpointInput = document.getElementById("endpoint");
+    const aphidCountInput = document.getElementById("aphidCount");
+    const fieldAreaInput = document.getElementById("fieldArea");
+    const exposureDaysInput = document.getElementById("exposureDays");
+    const weekStartInput = document.getElementById("weekStart");
+    const prevCatchRateInput = document.getElementById("prevCatchRate");
+    const catchTrendInput = document.getElementById("catchTrend");
+    const tMeanInput = document.getElementById("tMean");
+    const rhMeanInput = document.getElementById("rhMean");
+    const vpdMeanInput = document.getElementById("vpdMean");
+    const inWindowInput = document.getElementById("inWindow");
+    const appsSoFarInput = document.getElementById("appsSoFar");
+    const respectGateInput = document.getElementById("respectGate");
+
+    const runBtn = document.getElementById("runBtn");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const healthBtn = document.getElementById("healthBtn");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+
+    const scopeClassEl = document.getElementById("scopeClass");
+    const scopeNameEl = document.getElementById("scopeName");
+    const productKgEl = document.getElementById("productKg");
+    const sprayLEl = document.getElementById("sprayL");
+    const waterLhaEl = document.getElementById("waterLha");
+    const treatedFractionEl = document.getElementById("treatedFraction");
+    const gateReasonEl = document.getElementById("gateReason");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/decision/dashboard")) {
+        predictNav.href = `${window.location.origin}/predict/dashboard`;
+        telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+        historyNav.href = `${window.location.origin}/history/dashboard`;
+      } else {
+        predictNav.href = "./local_web_client.html";
+        telemetryNav.href = "./telemetry_dashboard.html";
+        historyNav.href = "./history_records.html";
+      }
+    }
+
+    function normalizeDecisionUrl(url) {
+      const u = String(url || "").trim().replace(/\/+$/, "");
+      if (!u) return "";
+      if (u.endsWith("/decision/weekly")) return u;
+      return `${u}/decision/weekly`;
+    }
+
+    function healthUrlFromDecision(decisionUrl) {
+      return decisionUrl.replace(/\/decision\/weekly$/, "/health");
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.className = isError ? "status error" : "status";
+    }
+
+    function parseNumber(input, { required = false } = {}) {
+      const raw = String(input.value ?? "").trim();
+      if (!raw) {
+        if (required) throw new Error(`Missing value: ${input.id}`);
+        return undefined;
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        throw new Error(`Invalid number: ${input.id}`);
+      }
+      return value;
+    }
+
+    function fillSummary(data) {
+      scopeClassEl.textContent = data.scope_class ?? "-";
+      scopeNameEl.textContent = data.scope_name ?? "-";
+      productKgEl.textContent = data.product_kg ?? "-";
+      sprayLEl.textContent = data.spray_l ?? "-";
+      waterLhaEl.textContent = data.water_l_ha ?? "-";
+      treatedFractionEl.textContent = data.treated_fraction ?? "-";
+      gateReasonEl.textContent = (data.compliance && data.compliance.gate_reason) ? data.compliance.gate_reason : "-";
+    }
+
+    function buildPayload() {
+      const payload = {
+        aphid_count: parseNumber(aphidCountInput, { required: true }),
+        field_area_ha: parseNumber(fieldAreaInput, { required: true }),
+        exposure_days: parseNumber(exposureDaysInput, { required: true }),
+        week_start: weekStartInput.value || undefined,
+        t_mean: parseNumber(tMeanInput, { required: true }),
+        rh_mean: parseNumber(rhMeanInput, { required: true }),
+        apps_so_far: parseNumber(appsSoFarInput, { required: true }),
+        respect_compliance_gate: !!respectGateInput.checked
+      };
+
+      const prevCatchRate = parseNumber(prevCatchRateInput);
+      if (prevCatchRate !== undefined) payload.prev_catch_rate = prevCatchRate;
+
+      const catchTrend = parseNumber(catchTrendInput);
+      if (catchTrend !== undefined) payload.catch_trend = catchTrend;
+
+      const vpdMean = parseNumber(vpdMeanInput);
+      if (vpdMean !== undefined) payload.vpd_mean = vpdMean;
+
+      const inWindowRaw = String(inWindowInput.value || "").trim();
+      if (inWindowRaw !== "") payload.in_tepp_window = Number(inWindowRaw);
+
+      return payload;
+    }
+
+    healthBtn.addEventListener("click", async () => {
+      try {
+        const decisionUrl = normalizeDecisionUrl(endpointInput.value);
+        if (!decisionUrl) throw new Error("Endpoint is empty");
+        const healthUrl = healthUrlFromDecision(decisionUrl);
+        setStatus(`Checking health: ${healthUrl}`);
+        const res = await fetch(healthUrl, { method: "GET" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setStatus("Health check passed");
+        resultEl.value = JSON.stringify(data, null, 2);
+      } catch (err) {
+        setStatus(`Health check failed: ${err.message}`, true);
+      }
+    });
+
+    sampleBtn.addEventListener("click", () => {
+      aphidCountInput.value = "45";
+      fieldAreaInput.value = "3.5";
+      exposureDaysInput.value = "7";
+      weekStartInput.value = "2026-06-15";
+      prevCatchRateInput.value = "2.2";
+      catchTrendInput.value = "1.2";
+      tMeanInput.value = "18.5";
+      rhMeanInput.value = "68.0";
+      vpdMeanInput.value = "";
+      inWindowInput.value = "1";
+      appsSoFarInput.value = "0";
+      respectGateInput.checked = true;
+      setStatus("Loaded a high-risk sample input.");
+    });
+
+    runBtn.addEventListener("click", async () => {
+      try {
+        const decisionUrl = normalizeDecisionUrl(endpointInput.value);
+        if (!decisionUrl) throw new Error("Endpoint is empty");
+        const payload = buildPayload();
+        setStatus("Running decision model...");
+        const res = await fetch(decisionUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`HTTP ${res.status} ${body}`);
+        }
+        const data = await res.json();
+        fillSummary(data);
+        resultEl.value = JSON.stringify(data, null, 2);
+        setStatus(`Decision success: scope=${data.scope_class}, product_kg=${data.product_kg}`);
+      } catch (err) {
+        setStatus(`Decision failed: ${err.message}`, true);
+      }
+    });
+
+    configureNavigation();
+  </script>
+</body>
+
+</html>

@@ -38,6 +38,7 @@ IOT_API_KEY = os.getenv("IOT_API_KEY", "")
 TELEMETRY_DASHBOARD_PATH = "/app/telemetry_dashboard.html"
 PREDICT_DASHBOARD_PATH = "/app/local_web_client.html"
 HISTORY_DASHBOARD_PATH = "/app/history_records.html"
+DECISION_DASHBOARD_PATH = "/app/decision_dashboard.html"
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
@@ -694,3 +695,10 @@ def history_dashboard() -> FileResponse:
     if not os.path.exists(HISTORY_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(HISTORY_DASHBOARD_PATH)
+
+
+@app.get("/decision/dashboard")
+def decision_dashboard() -> FileResponse:
+    if not os.path.exists(DECISION_DASHBOARD_PATH):
+        raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
+    return FileResponse(DECISION_DASHBOARD_PATH)
