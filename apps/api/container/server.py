@@ -19,12 +19,13 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 from typing import Any
+from urllib.parse import quote, urlparse
 
 from azure.data.tables import TableServiceClient
 from azure.storage.blob import BlobServiceClient, ContentSettings
-from fastapi import FastAPI, File, HTTPException, Header, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Header, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from PIL import Image
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
@@ -303,6 +304,61 @@ def _upload_history_to_blob(blob_name: str, payload: dict[str, Any]) -> str:
     return blob_client.url
 
 
+def _extract_blob_name_from_url(blob_url: str, container: str) -> str | None:
+    """Extract blob name from a canonical Blob URL under a known container."""
+
+    if not blob_url:
+        return None
+    parsed = urlparse(blob_url)
+    path = (parsed.path or "").lstrip("/")
+    prefix = f"{container}/"
+    if not path.startswith(prefix):
+        return None
+    name = path[len(prefix) :]
+    return name or None
+
+
+def _build_blob_view_url(request: Request, route_prefix: str, blob_name: str) -> str:
+    """Build absolute API URL for proxied blob viewing/download."""
+
+    cleaned = blob_name.lstrip("/")
+    encoded = quote(cleaned, safe="")
+    base = str(request.base_url).rstrip("/")
+    return f"{base}{route_prefix}/{encoded}"
+
+
+def _download_blob_bytes(container: str, blob_name: str) -> tuple[bytes, str]:
+    """Read blob bytes + content type from a private container via server identity/conn string."""
+
+    if blob_service is None:
+        raise HTTPException(status_code=503, detail="Blob storage is not configured.")
+    if container == BLOB_CONTAINER_IMAGES and blob_image_error:
+        raise HTTPException(status_code=503, detail=f"Image container unavailable: {blob_image_error}")
+    if container == BLOB_CONTAINER_HISTORY and blob_history_error:
+        raise HTTPException(status_code=503, detail=f"History container unavailable: {blob_history_error}")
+
+    cleaned = blob_name.lstrip("/")
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Blob name is required.")
+
+    blob_client = blob_service.get_blob_client(container=container, blob=cleaned)
+    try:
+        payload = blob_client.download_blob().readall()
+        props = blob_client.get_blob_properties()
+    except Exception as exc:
+        msg = str(exc)
+        if "BlobNotFound" in msg or "ResourceNotFound" in msg:
+            raise HTTPException(status_code=404, detail="Blob not found.") from exc
+        raise HTTPException(status_code=502, detail=f"Blob read failed: {exc}") from exc
+
+    content_type = "application/octet-stream"
+    try:
+        content_type = props.content_settings.content_type or content_type
+    except Exception:
+        pass
+    return payload, content_type
+
+
 def _desc_row_key(ts: datetime) -> str:
     """Create reverse-time row key so latest telemetry appears first when scanning."""
 
@@ -574,7 +630,7 @@ async def predict(
 
 
 @app.get("/history")
-def get_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+def get_history(request: Request, limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
     """List recent inference history JSON records from blob storage."""
 
     if blob_service is None:
@@ -599,6 +655,15 @@ def get_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
 
         payload.setdefault("history_blob_name", b.name)
         payload.setdefault("history_blob_url", blob_client.url)
+        payload.setdefault("history_view_url", _build_blob_view_url(request, "/history/blob", b.name))
+        image_name = payload.get("image_blob_name")
+        if not isinstance(image_name, str) or not image_name:
+            image_url = payload.get("image_blob_url")
+            if isinstance(image_url, str):
+                image_name = _extract_blob_name_from_url(image_url, BLOB_CONTAINER_IMAGES)
+        if isinstance(image_name, str) and image_name:
+            payload.setdefault("image_blob_name", image_name)
+            payload.setdefault("image_view_url", _build_blob_view_url(request, "/image/blob", image_name))
         if getattr(b, "last_modified", None):
             payload.setdefault("history_last_modified_utc", b.last_modified.isoformat())
         records.append(payload)
@@ -609,6 +674,32 @@ def get_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
         "container": BLOB_CONTAINER_HISTORY,
         "records": records,
     }
+
+
+@app.get("/history/blob/{blob_name:path}")
+def history_blob_proxy(blob_name: str) -> Response:
+    """Serve a history JSON blob through API so private storage doesn't need public access."""
+
+    payload, content_type = _download_blob_bytes(BLOB_CONTAINER_HISTORY, blob_name)
+    filename = os.path.basename(blob_name) or "history.json"
+    return Response(
+        content=payload,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@app.get("/image/blob/{blob_name:path}")
+def image_blob_proxy(blob_name: str) -> Response:
+    """Serve an image blob through API so private storage doesn't need public access."""
+
+    payload, content_type = _download_blob_bytes(BLOB_CONTAINER_IMAGES, blob_name)
+    filename = os.path.basename(blob_name) or "image.bin"
+    return Response(
+        content=payload,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @app.post("/telemetry")

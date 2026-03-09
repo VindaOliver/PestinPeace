@@ -526,11 +526,13 @@
         const count = Number.isFinite(Number(r.count)) ? Number(r.count) : "-";
 
         let linksHtml = '';
-        if (r.image_blob_url) {
-          linksHtml += `<a class="record-link" href="${r.image_blob_url}" target="_blank" rel="noopener"><span class="record-link-icon">🖼️</span>${r.image_blob_name || '查看图片'}</a>`;
+        const imageUrl = r.image_view_url || r.image_blob_url;
+        if (imageUrl) {
+          linksHtml += `<a class="record-link" href="${imageUrl}" target="_blank" rel="noopener"><span class="record-link-icon">🖼️</span>${r.image_blob_name || '查看图片'}</a>`;
         }
-        if (r.history_blob_url) {
-          linksHtml += `<a class="record-link" href="${r.history_blob_url}" target="_blank" rel="noopener"><span class="record-link-icon">📄</span>${r.history_blob_name || '查看记录'}</a>`;
+        const historyUrl = r.history_view_url || r.history_blob_url;
+        if (historyUrl) {
+          linksHtml += `<a class="record-link" href="${historyUrl}" target="_blank" rel="noopener"><span class="record-link-icon">📄</span>${r.history_blob_name || '查看记录'}</a>`;
         }
 
         card.innerHTML = `
