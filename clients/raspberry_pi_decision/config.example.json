@@ -1,0 +1,11 @@
+{
+  "field_area_ha": 2.0,
+  "default_exposure_days": 7,
+  "state_file": "data/weekly_state.json",
+  "model_path": "model/tepp_demo_scope_model.pkl",
+  "meta_path": "model/tepp_demo_meta.json",
+  "sensor": {
+    "type": "dht22",
+    "pin": 4
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "feature_cols": [
+    "log_catch",
+    "catch_trend",
+    "T_mean",
+    "RH_mean",
+    "VPD_mean",
+    "doy_sin",
+    "doy_cos",
+    "in_tepp_window",
+    "apps_so_far"
+  ],
+  "teacher_quantiles": {
+    "q50": 1.3571428571428572,
+    "q85": 2.114285714285714
+  },
+  "treated_fraction_by_scope": {
+    "0": 0.0,
+    "1": 0.3,
+    "2": 1.0
+  },
+  "water_by_scope_L_ha": {
+    "0": 0,
+    "1": 350,
+    "2": 500
+  },
+  "tepp_rate_kg_ha": 0.14,
+  "notes": "Synthetic demo only."
+}
