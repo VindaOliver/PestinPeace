@@ -1,3 +1,5 @@
+"""Simple Raspberry Pi capture client that uploads images to /predict."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +16,8 @@ DEFAULT_TIMEOUT = 30
 
 
 def normalize_predict_url(url: str) -> str:
+    """Accept base URL or /predict URL and return normalized /predict endpoint."""
+
     u = url.strip().rstrip("/")
     if u.endswith("/predict"):
         return u
@@ -21,6 +25,8 @@ def normalize_predict_url(url: str) -> str:
 
 
 def capture_image(camera_index: int = 0, save_path: str = "capture.jpg") -> Path | None:
+    """Capture one frame from camera and save to disk."""
+
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
         print(f"Error: cannot open camera index {camera_index}")
@@ -42,6 +48,8 @@ def capture_image(camera_index: int = 0, save_path: str = "capture.jpg") -> Path
 
 
 def send_for_inference(image_path: Path, api_url: str, conf: float, timeout: int) -> dict | None:
+    """Upload captured image to /predict and return parsed JSON response."""
+
     try:
         with image_path.open("rb") as f:
             files = {"image": (image_path.name, f, "image/jpeg")}
@@ -58,6 +66,8 @@ def send_for_inference(image_path: Path, api_url: str, conf: float, timeout: int
 
 
 def main() -> None:
+    """CLI entrypoint for one-shot or periodic capture/inference loop."""
+
     parser = argparse.ArgumentParser(description="Raspberry Pi camera client for YOLO aphid detection.")
     parser.add_argument("--url", required=True, help="Container App base URL or /predict URL.")
     parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")

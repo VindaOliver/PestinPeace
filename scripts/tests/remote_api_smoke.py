@@ -1,3 +1,5 @@
+"""Remote smoke test suite against deployed HTTP endpoints."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,12 +13,16 @@ import requests
 
 @dataclass
 class CheckResult:
+    """One endpoint/assertion check result."""
+
     name: str
     passed: bool
     detail: str
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse remote smoke CLI options."""
+
     parser = argparse.ArgumentParser(description="Smoke test deployed API by HTTP calls.")
     parser.add_argument(
         "--base-url",
@@ -58,6 +64,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def parse_allowed(raw: str) -> set[int]:
+    """Parse comma-separated allowed status list into integer set."""
+
     out: set[int] = set()
     for part in raw.split(","):
         part = part.strip()
@@ -68,6 +76,8 @@ def parse_allowed(raw: str) -> set[int]:
 
 
 def safe_json(resp: requests.Response) -> dict[str, Any] | None:
+    """Safely parse JSON body from requests response."""
+
     try:
         return resp.json()
     except Exception:
@@ -75,6 +85,8 @@ def safe_json(resp: requests.Response) -> dict[str, Any] | None:
 
 
 def expect_status(checks: list[CheckResult], name: str, actual: int, allowed: set[int]) -> None:
+    """Record status-code assertion with allowed status set."""
+
     checks.append(
         CheckResult(
             name=name,
@@ -85,6 +97,8 @@ def expect_status(checks: list[CheckResult], name: str, actual: int, allowed: se
 
 
 def main() -> int:
+    """Run remote endpoint checks and return non-zero on failure (strict mode)."""
+
     args = parse_args()
     base = args.base_url.rstrip("/")
     sample_image = Path(args.sample_image).resolve()

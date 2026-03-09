@@ -21,6 +21,7 @@ https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/t
 - `device_id`：`string`，必填，设备唯一标识（示例：`pi-001`）
 - `temperature`：`number`，可选，温度（摄氏度）
 - `humidity`：`number`，可选，相对湿度（百分比）
+- `pressure_hpa`：`number`，可选，气压（hPa）
 - `light`：`number`，可选，光照值（按你们设备单位）
 - `ts`：`string`，可选，ISO8601 时间（建议 UTC）
 
@@ -31,6 +32,7 @@ https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/t
   "device_id": "pi-001",
   "temperature": 24.6,
   "humidity": 58.2,
+  "pressure_hpa": 1012.8,
   "light": 301,
   "ts": "2026-03-09T13:22:11Z"
 }
@@ -60,7 +62,7 @@ HTTP 200 示例：
 ```bash
 curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry" \
   -H "Content-Type: application/json" \
-  -d "{\"device_id\":\"pi-001\",\"temperature\":24.6,\"humidity\":58.2,\"light\":301}"
+  -d "{\"device_id\":\"pi-001\",\"temperature\":24.6,\"humidity\":58.2,\"pressure_hpa\":1012.8,\"light\":301}"
 ```
 
 ### 4.2 Python（requests）
@@ -75,6 +77,7 @@ payload = {
     "device_id": "pi-001",
     "temperature": 24.6,
     "humidity": 58.2,
+    "pressure_hpa": 1012.8,
     "light": 301,
     "ts": datetime.now(timezone.utc).isoformat(),
 }
@@ -106,6 +109,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
       "ts": "2026-03-09T13:22:11+00:00",
       "temperature": 24.6,
       "humidity": 58.2,
+      "pressure_hpa": 1012.8,
       "light": 301
     }
   ]

@@ -1,3 +1,5 @@
+"""Local smoke test suite for FastAPI container app using TestClient."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,12 +16,16 @@ from fastapi.testclient import TestClient
 
 @dataclass
 class CheckResult:
+    """One assertion result used in final smoke summary/report."""
+
     name: str
     passed: bool
     detail: str
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse local smoke CLI options."""
+
     parser = argparse.ArgumentParser(description="Local smoke test for apps/api/container FastAPI service.")
     parser.add_argument(
         "--app-dir",
@@ -46,6 +52,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_server_module(app_dir: Path):
+    """Import server.py as a module from a custom app directory."""
+
     server_path = app_dir / "server.py"
     if not server_path.exists():
         raise FileNotFoundError(f"Missing server.py: {server_path}")
@@ -62,6 +70,8 @@ def _load_server_module(app_dir: Path):
 
 
 def _safe_json(response) -> dict[str, Any] | None:
+    """Safely parse JSON from response object; return None on parse failure."""
+
     try:
         return response.json()
     except Exception:
@@ -69,6 +79,8 @@ def _safe_json(response) -> dict[str, Any] | None:
 
 
 def _resolve_dashboard_file(app_dir: Path, filename: str) -> Path:
+    """Resolve dashboard HTML path in container context or web source fallback."""
+
     in_container_context = app_dir / filename
     if in_container_context.exists():
         return in_container_context
@@ -89,6 +101,8 @@ def _expect_status(
     expected: int,
     detail: str = "",
 ) -> None:
+    """Append expected-vs-actual HTTP status check result."""
+
     checks.append(
         CheckResult(
             name=name,
@@ -99,6 +113,8 @@ def _expect_status(
 
 
 def main() -> int:
+    """Run local endpoint checks and return process exit code."""
+
     args = parse_args()
     app_dir = Path(args.app_dir).resolve()
     model_dir = app_dir / "model"

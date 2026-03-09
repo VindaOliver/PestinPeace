@@ -436,7 +436,9 @@
 </head>
 
 <body>
+  <!-- Page layout: history controls, status, trend chart, and card list -->
   <div class="wrap">
+    <!-- Shared top navigation across predict/telemetry/history/decision dashboards -->
     <div class="top-nav">
       <a id="predictNav" class="nav-btn" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn" href="#">监测</a>
@@ -446,6 +448,7 @@
 
     <h1>识别历史记录</h1>
 
+    <!-- Query controls for /history endpoint -->
     <div class="controls">
       <div>
         <label for="baseUrl">历史接口地址（支持 base URL 或完整 /history）</label>
@@ -463,15 +466,18 @@
 
     <div id="status" class="status"></div>
 
+    <!-- History count trend line chart -->
     <div class="chart-box">
       <div class="chart-title">检测数量趋势（Count Trend）</div>
       <canvas id="countTrendChart" height="100"></canvas>
     </div>
 
+    <!-- Record card container (rendered dynamically) -->
     <div id="historyBody" class="record-grid"></div>
   </div>
 
   <script>
+    // DOM references and shared navigation links.
     const baseEl = document.getElementById("baseUrl");
     const limitEl = document.getElementById("limit");
     const loadBtn = document.getElementById("loadBtn");
@@ -483,6 +489,7 @@
     const trendCanvas = document.getElementById("countTrendChart");
     let trendChart = null;
 
+    // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/history/dashboard")) {
@@ -496,11 +503,13 @@
       }
     }
 
+    // Status banner helper for success/error feedback.
     function setStatus(text, isErr = false) {
       statusEl.textContent = text;
       statusEl.className = isErr ? "status err" : "status";
     }
 
+    // Render API records into responsive cards.
     function renderRows(records) {
       bodyEl.innerHTML = "";
       if (!records || records.length === 0) {
@@ -552,6 +561,7 @@
       return d.toISOString().slice(11, 19);
     }
 
+    // Build/update the Chart.js count trend from history records.
     function renderCountTrend(records) {
       const ordered = (records || []).slice().reverse();
       const labels = ordered.map(r => formatTimeLabel(r.timestamp_utc || r.history_last_modified_utc));
@@ -610,12 +620,14 @@
       trendChart.update();
     }
 
+    // Accept base URL or full /history endpoint.
     function normalizeHistoryUrl(url) {
       const u = (url || "").trim().replace(/\/+$/, "");
       if (u.endsWith("/history")) return u;
       return `${u}/history`;
     }
 
+    // Load records from API and refresh both table cards and chart.
     async function loadHistory() {
       const historyBase = normalizeHistoryUrl(baseEl.value);
       const limit = limitEl.value || "50";

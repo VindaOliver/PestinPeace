@@ -347,7 +347,9 @@
 </head>
 
 <body>
+  <!-- Page layout: card wrapper + top navigation + predict form + result panels -->
   <div class="wrap">
+    <!-- Shared top navigation across predict/telemetry/history/decision dashboards -->
     <div class="top-nav">
       <a class="nav-btn active" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn" href="#">监测</a>
@@ -358,6 +360,7 @@
     <h1>Aphid 云端识别客户端</h1>
     <div class="subtitle">上传图片到 Azure <code>/predict</code> 接口，返回 JSON 结果并绘制检测框图片。</div>
 
+    <!-- Predict request form -->
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
         <label for="endpoint">接口地址（支持 base URL 或完整 /predict 路径）</label>
@@ -386,11 +389,13 @@
       </div>
     </div>
 
+    <!-- Action buttons: run predict and health check -->
     <div class="actions">
       <button id="predictBtn">上传并识别</button>
       <button id="healthBtn" class="secondary">检查 Health</button>
     </div>
 
+    <!-- Visual result area: image canvas + raw JSON payload -->
     <div class="result-img-box">
       <div class="result-img-title">检测框结果图</div>
       <canvas id="resultCanvas"></canvas>
@@ -401,6 +406,7 @@
   </div>
 
   <script>
+    // DOM references and navigation links.
     const endpointInput = document.getElementById("endpoint");
     const confInput = document.getElementById("conf");
     const iouInput = document.getElementById("iou");
@@ -416,6 +422,7 @@
     const historyNav = document.getElementById("historyNav");
     const decisionNav = document.getElementById("decisionNav");
 
+    // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/predict/dashboard")) {
@@ -429,6 +436,7 @@
       }
     }
 
+    // Allow either base URL or full /predict endpoint input.
     function normalizePredictUrl(url) {
       const u = url.trim().replace(/\/+$/, "");
       if (u.endsWith("/predict")) return u;
@@ -444,6 +452,7 @@
       statusEl.className = isError ? "status error" : "status";
     }
 
+    // Rendering helpers for annotated bounding-box preview.
     function colorFromClassId(classId) {
       const palette = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
       const idx = Math.abs(Number(classId) || 0) % palette.length;
@@ -486,6 +495,7 @@
       resultCanvas.style.display = "block";
     }
 
+    // Load chosen image and draw model detections over it.
     async function renderImageWithBoxes(file, detections) {
       const objectUrl = URL.createObjectURL(file);
       try {
@@ -501,6 +511,7 @@
       }
     }
 
+    // Health check flow.
     healthBtn.addEventListener("click", async () => {
       try {
         const predictUrl = normalizePredictUrl(endpointInput.value);
@@ -516,6 +527,7 @@
       }
     });
 
+    // Predict flow: upload image -> receive JSON -> render overlays.
     predictBtn.addEventListener("click", async () => {
       const file = imageInput.files && imageInput.files[0];
       if (!file) {

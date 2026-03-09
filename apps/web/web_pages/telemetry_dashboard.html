@@ -326,7 +326,9 @@
 </head>
 
 <body>
+  <!-- Page layout: telemetry query controls + three time-series charts -->
   <div class="wrap">
+    <!-- Shared top navigation across predict/telemetry/history/decision dashboards -->
     <div class="top-nav">
       <a id="predictNav" class="nav-btn" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn active" href="#">监测</a>
@@ -336,6 +338,7 @@
 
     <h1>IoT Telemetry Dashboard</h1>
 
+    <!-- Query controls for /telemetry/latest -->
     <div class="controls">
       <div>
         <label for="baseUrl">Base URL</label>
@@ -356,6 +359,7 @@
 
     <div id="status" class="status"></div>
 
+    <!-- Chart area: temperature, humidity, and light -->
     <div class="charts">
       <div class="chart-card">
         <div class="chart-header">
@@ -382,6 +386,7 @@
   </div>
 
   <script>
+    // DOM references and shared navigation links.
     const defaultBase = "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io";
     const baseEl = document.getElementById("baseUrl");
     const deviceEl = document.getElementById("deviceId");
@@ -392,6 +397,7 @@
     const historyNav = document.getElementById("historyNav");
     const decisionNav = document.getElementById("decisionNav");
 
+    // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/telemetry/dashboard")) {
@@ -407,11 +413,13 @@
 
     baseEl.value = defaultBase;
 
+    // Status banner helper for success/error feedback.
     function setStatus(text, isErr = false) {
       statusEl.textContent = text;
       statusEl.className = isErr ? "status err" : "status";
     }
 
+    // Reusable Chart.js line-chart factory.
     function mkChart(canvasId, label, color) {
       return new Chart(document.getElementById(canvasId), {
         type: "line",
@@ -458,12 +466,14 @@
     const humChart = mkChart("humChart", "humidity", "#3b82f6");
     const lightChart = mkChart("lightChart", "light", "#f59e0b");
 
+    // Apply new points and redraw chart.
     function applySeries(chart, labels, values) {
       chart.data.labels = labels;
       chart.data.datasets[0].data = values;
       chart.update();
     }
 
+    // Load latest telemetry points for one device and refresh all charts.
     async function loadLatest() {
       const base = baseEl.value.trim().replace(/\/+$/, "");
       const device = deviceEl.value.trim();

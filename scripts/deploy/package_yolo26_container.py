@@ -1,3 +1,9 @@
+"""Assemble Docker build context for the API container and optionally build image.
+
+This script copies validated templates/artifacts into an isolated context folder
+so deployment can run from one deterministic directory.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -46,6 +52,8 @@ scikit-learn==1.5.2
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse packaging/build options for container context generation."""
+
     parser = argparse.ArgumentParser(
         description="Create Docker context for YOLO26 inference (with IoT telemetry) and optionally build image.",
     )
@@ -109,11 +117,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def _write_text(path: Path, text: str) -> None:
+    """Create parent dirs and write UTF-8 text file."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
 def _resolve_model_path(model_path: Path) -> Path:
+    """Resolve model file path, falling back to latest `runs/**/weights/best.pt`."""
+
     if model_path.exists():
         return model_path
 
@@ -125,6 +137,8 @@ def _resolve_model_path(model_path: Path) -> Path:
 
 
 def _resolve_template_path(path_str: str, script_dir: Path, repo_root: Path) -> Path:
+    """Resolve a template path across absolute path, CWD, repo-root, and script-dir."""
+
     p = Path(path_str)
     if p.is_absolute():
         return p
@@ -137,6 +151,8 @@ def _resolve_template_path(path_str: str, script_dir: Path, repo_root: Path) -> 
 
 
 def main() -> None:
+    """Generate container build context and optionally run docker build."""
+
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent.parent
@@ -172,6 +188,7 @@ def main() -> None:
     decision_web_code = decision_web_template_path.read_text(encoding="utf-8")
 
     context_dir = Path(args.context_dir)
+    # Recreate context from scratch to avoid stale deployment artifacts.
     if context_dir.exists():
         shutil.rmtree(context_dir)
 

@@ -1,3 +1,13 @@
+"""Main FastAPI service for image inference, telemetry, history, and weekly spray decision demo.
+
+This module wires together:
+1) YOLO image inference endpoint (`/predict`)
+2) Telemetry ingest/query endpoints (`/telemetry`, `/telemetry/latest`)
+3) History retrieval endpoint (`/history`)
+4) Weekly spray-scope decision endpoint (`/decision/weekly`)
+5) Built-in dashboard static page routes
+"""
+
 from __future__ import annotations
 
 import io
@@ -19,6 +29,9 @@ from PIL import Image
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
 
+# -----------------------------
+# Runtime configuration
+# -----------------------------
 MODEL_PATH = os.getenv("MODEL_PATH", "/app/model/best.pt")
 DEFAULT_CONF = float(os.getenv("DEFAULT_CONF", "0.25"))
 DEFAULT_IOU = float(os.getenv("DEFAULT_IOU", "0.45"))
@@ -40,6 +53,7 @@ PREDICT_DASHBOARD_PATH = "/app/local_web_client.html"
 HISTORY_DASHBOARD_PATH = "/app/history_records.html"
 DECISION_DASHBOARD_PATH = "/app/decision_dashboard.html"
 
+# Fail fast if the primary YOLO model is not available.
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
@@ -53,6 +67,9 @@ app.add_middleware(
     allow_credentials=False,
 )
 
+# -----------------------------
+# Azure Blob clients (images/history)
+# -----------------------------
 blob_service: BlobServiceClient | None = None
 blob_init_error = ""
 blob_image_error = ""
@@ -64,6 +81,7 @@ if BLOB_CONNECTION_STRING:
         blob_init_error = str(exc)
         blob_service = None
 
+# Validate/create containers so runtime errors are explicit in /health.
 if blob_service is not None:
     try:
         blob_service.get_container_client(BLOB_CONTAINER_IMAGES).create_container()
@@ -83,6 +101,9 @@ if blob_service is not None:
     except Exception as exc:
         blob_history_error = str(exc)
 
+# -----------------------------
+# Azure Table client (telemetry)
+# -----------------------------
 table_service: TableServiceClient | None = None
 telemetry_table = None
 telemetry_init_error = ""
@@ -99,14 +120,19 @@ else:
 
 
 class TelemetryIn(BaseModel):
+    """Payload schema for telemetry upload."""
+
     device_id: str = Field(..., min_length=1, max_length=64)
     temperature: float | None = None
     humidity: float | None = None
+    pressure_hpa: float | None = None
     light: float | None = None
     ts: datetime | None = None
 
 
 class WeeklyScopeDecisionIn(BaseModel):
+    """Payload schema for weekly spray-scope decision inference."""
+
     aphid_count: int = Field(..., ge=0)
     field_area_ha: float = Field(..., gt=0)
     exposure_days: int = Field(default=7, ge=1, le=14)
@@ -143,12 +169,16 @@ tepp_rate_kg_ha = TEPP_DEFAULT_RATE_KG_HA
 
 
 def _load_json_file(path: str) -> dict[str, Any]:
+    """Load a JSON object from disk; return empty dict for non-object JSON."""
+
     with open(path, "r", encoding="utf-8") as f:
         parsed = json.load(f)
     return parsed if isinstance(parsed, dict) else {}
 
 
 def _normalize_scope_float_map(raw: Any, defaults: dict[int, float]) -> dict[int, float]:
+    """Normalize meta scope map keys to int and values to float, with defaults."""
+
     merged = dict(defaults)
     if not isinstance(raw, dict):
         return merged
@@ -161,6 +191,8 @@ def _normalize_scope_float_map(raw: Any, defaults: dict[int, float]) -> dict[int
 
 
 def _normalize_scope_int_map(raw: Any, defaults: dict[int, int]) -> dict[int, int]:
+    """Normalize meta scope map keys/values to int, with defaults."""
+
     merged = dict(defaults)
     if not isinstance(raw, dict):
         return merged
@@ -173,6 +205,8 @@ def _normalize_scope_int_map(raw: Any, defaults: dict[int, int]) -> dict[int, in
 
 
 def _init_tepp_demo_assets() -> None:
+    """Load decision model and meta from disk into module-level runtime globals."""
+
     global tepp_model, tepp_model_error, tepp_meta
     global tepp_feature_cols, tepp_teacher_q50, tepp_teacher_q85
     global tepp_treated_fraction_by_scope, tepp_water_by_scope, tepp_rate_kg_ha
@@ -223,15 +257,21 @@ _init_tepp_demo_assets()
 
 
 def _utc_stamp() -> str:
+    """UTC timestamp used in request IDs and blob naming."""
+
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _safe_filename(name: str) -> str:
+    """Keep only safe filename characters for blob/object storage."""
+
     cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "_", name.strip())
     return cleaned or "image.jpg"
 
 
 def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
+    """Upload original request image to image blob container and return public URL."""
+
     if blob_service is None:
         raise RuntimeError("Blob service is not configured.")
     if blob_image_error:
@@ -246,6 +286,8 @@ def _upload_image_to_blob(blob_name: str, raw: bytes, content_type: str) -> str:
 
 
 def _upload_history_to_blob(blob_name: str, payload: dict[str, Any]) -> str:
+    """Upload request/response trace JSON to history blob container and return URL."""
+
     if blob_service is None:
         raise RuntimeError("Blob service is not configured.")
     if blob_history_error:
@@ -262,12 +304,16 @@ def _upload_history_to_blob(blob_name: str, payload: dict[str, Any]) -> str:
 
 
 def _desc_row_key(ts: datetime) -> str:
+    """Create reverse-time row key so latest telemetry appears first when scanning."""
+
     ms = int(ts.timestamp() * 1000)
     inv = 9999999999999 - ms
     return f"{inv:013d}_{uuid.uuid4().hex[:8]}"
 
 
 def _check_iot_api_key(x_api_key: str | None) -> None:
+    """Validate optional API key gate for telemetry endpoints."""
+
     if not IOT_API_KEY:
         return
     if x_api_key != IOT_API_KEY:
@@ -275,23 +321,31 @@ def _check_iot_api_key(x_api_key: str | None) -> None:
 
 
 def _vpd_kpa(t_c: float, rh_pct: float) -> float:
+    """Compute VPD (kPa) from temperature and relative humidity."""
+
     es = 0.6108 * math.exp((17.27 * t_c) / (t_c + 237.3))
     ea = es * (rh_pct / 100.0)
     return max(es - ea, 0.0)
 
 
 def _resolve_doy(week_start: date | None) -> int:
+    """Resolve day-of-year from payload week_start (or current UTC date)."""
+
     d = week_start if week_start is not None else datetime.now(timezone.utc).date()
     return d.timetuple().tm_yday
 
 
 def _resolve_tepp_window(week_start_doy: int, in_tepp_window: int | None) -> int:
+    """Resolve application window flag from explicit input or demo DOY fallback rule."""
+
     if in_tepp_window is not None:
         return 1 if int(in_tepp_window) == 1 else 0
     return 1 if 135 <= week_start_doy <= 260 else 0
 
 
 def _build_tepp_feature_map(payload: WeeklyScopeDecisionIn) -> dict[str, float]:
+    """Transform request payload into model-ready decision features."""
+
     catch_rate = float(payload.aphid_count) / float(payload.exposure_days)
     catch_trend = (
         float(payload.catch_trend)
@@ -318,6 +372,8 @@ def _build_tepp_feature_map(payload: WeeklyScopeDecisionIn) -> dict[str, float]:
 
 
 def _scope_name(scope_class: int) -> str:
+    """Map scope class index to API-facing semantic name."""
+
     if scope_class == 1:
         return "boundary_band"
     if scope_class == 2:
@@ -326,6 +382,8 @@ def _scope_name(scope_class: int) -> str:
 
 
 def _tepp_model_proba_map(features: list[float]) -> dict[str, float] | None:
+    """Return class probability map if model supports predict_proba."""
+
     if tepp_model is None or not hasattr(tepp_model, "predict_proba"):
         return None
     try:
@@ -350,6 +408,8 @@ def _tepp_model_proba_map(features: list[float]) -> dict[str, float] | None:
 
 
 def _infer_scope_by_model(features: list[float]) -> int | None:
+    """Infer scope class from loaded model; return None on runtime/model errors."""
+
     if tepp_model is None:
         return None
     try:
@@ -360,6 +420,8 @@ def _infer_scope_by_model(features: list[float]) -> int | None:
 
 
 def _infer_scope_by_teacher_rule(feature_map: dict[str, float]) -> int:
+    """Fallback weak-supervision rule used when model is unavailable."""
+
     catch_rate = feature_map["catch_rate"]
     scope_class = 0
     if catch_rate >= tepp_teacher_q85:
@@ -374,6 +436,8 @@ def _infer_scope_by_teacher_rule(feature_map: dict[str, float]) -> int:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    """Service and dependency health summary endpoint."""
+
     return {
         "status": "ok",
         "model_path": MODEL_PATH,
@@ -401,6 +465,8 @@ async def predict(
     imgsz: int = DEFAULT_IMGSZ,
     max_det: int = DEFAULT_MAX_DET,
 ) -> dict[str, Any]:
+    """Run YOLO inference on uploaded image and optionally persist blobs/history."""
+
     if not image.filename:
         raise HTTPException(status_code=400, detail="Missing image filename.")
 
@@ -509,6 +575,8 @@ async def predict(
 
 @app.get("/history")
 def get_history(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
+    """List recent inference history JSON records from blob storage."""
+
     if blob_service is None:
         raise HTTPException(status_code=503, detail="Blob storage is not configured.")
     if blob_history_error:
@@ -548,6 +616,8 @@ def upload_telemetry(
     payload: TelemetryIn,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ) -> dict[str, Any]:
+    """Upsert one telemetry sample into Azure Table Storage."""
+
     _check_iot_api_key(x_api_key)
 
     if telemetry_table is None:
@@ -561,6 +631,7 @@ def upload_telemetry(
         "ts": ts.isoformat(),
         "temperature": payload.temperature,
         "humidity": payload.humidity,
+        "pressure_hpa": payload.pressure_hpa,
         "light": payload.light,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -574,6 +645,8 @@ def telemetry_latest(
     limit: int = Query(100, ge=1, le=500),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ) -> dict[str, Any]:
+    """Return latest telemetry rows for a device."""
+
     _check_iot_api_key(x_api_key)
 
     if telemetry_table is None:
@@ -590,6 +663,7 @@ def telemetry_latest(
                 "ts": entity.get("ts"),
                 "temperature": entity.get("temperature"),
                 "humidity": entity.get("humidity"),
+                "pressure_hpa": entity.get("pressure_hpa"),
                 "light": entity.get("light"),
             }
         )
@@ -601,6 +675,8 @@ def telemetry_latest(
 
 @app.post("/decision/weekly")
 def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
+    """Return weekly spray-scope recommendation with compliance gate and dosage math."""
+
     feature_map = _build_tepp_feature_map(payload)
     feature_values = [float(feature_map.get(c, 0.0)) for c in tepp_feature_cols]
 
@@ -678,6 +754,8 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
 
 @app.get("/telemetry/dashboard")
 def telemetry_dashboard() -> FileResponse:
+    """Serve telemetry dashboard HTML bundled in container image."""
+
     if not os.path.exists(TELEMETRY_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(TELEMETRY_DASHBOARD_PATH)
@@ -685,6 +763,8 @@ def telemetry_dashboard() -> FileResponse:
 
 @app.get("/predict/dashboard")
 def predict_dashboard() -> FileResponse:
+    """Serve predict dashboard HTML bundled in container image."""
+
     if not os.path.exists(PREDICT_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(PREDICT_DASHBOARD_PATH)
@@ -692,6 +772,8 @@ def predict_dashboard() -> FileResponse:
 
 @app.get("/history/dashboard")
 def history_dashboard() -> FileResponse:
+    """Serve history dashboard HTML bundled in container image."""
+
     if not os.path.exists(HISTORY_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(HISTORY_DASHBOARD_PATH)
@@ -699,6 +781,8 @@ def history_dashboard() -> FileResponse:
 
 @app.get("/decision/dashboard")
 def decision_dashboard() -> FileResponse:
+    """Serve weekly decision dashboard HTML bundled in container image."""
+
     if not os.path.exists(DECISION_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(DECISION_DASHBOARD_PATH)

@@ -1,3 +1,15 @@
+[#
+.SYNOPSIS
+Deploy the API container to Azure Container Apps with ACR build/push support.
+
+.DESCRIPTION
+Workflow:
+1) Validate Azure CLI login and local container context
+2) Sync web pages into container context
+3) Ensure Resource Group + ACR + Container App Environment exist
+4) Build/push image (ACR build first, local Docker fallback)
+5) Create/update Container App and print endpoint URLs
+#]
 [CmdletBinding()]
 param(
     [string]$ResourceGroup = "rg-aphid-yolo",
@@ -21,6 +33,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Resolve Azure CLI path from PATH or common Windows install locations.
 function Resolve-AzExecutable() {
     $azCmd = Get-Command az -ErrorAction SilentlyContinue
     if ($azCmd) {
@@ -40,6 +53,7 @@ function Resolve-AzExecutable() {
     throw "Azure CLI not found. Install with: winget install --id Microsoft.AzureCLI -e --source winget"
 }
 
+# Wrapper around `az` commands with logging and strict exit-code handling.
 function Invoke-Az([string]$CommandText) {
     Write-Host ">> az $CommandText"
     Invoke-Expression "& `"$script:AzExe`" $CommandText"
@@ -48,6 +62,7 @@ function Invoke-Az([string]$CommandText) {
     }
 }
 
+# Build and push image locally when ACR cloud build is unavailable/disabled.
 function Invoke-LocalDockerBuildPush([string]$ImageRef, [string]$RegistryName, [string]$ContextDir) {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         throw "Docker CLI not found. Install Docker Desktop or remove -UseLocalDockerBuild."
@@ -73,6 +88,7 @@ function Invoke-LocalDockerBuildPush([string]$ImageRef, [string]$RegistryName, [
     }
 }
 
+# Keep dashboard HTML in sync with the container context before build/deploy.
 function Sync-WebPagesToContext([string]$WebPagesDir, [string]$ContextDir) {
     if (-not (Test-Path -LiteralPath $WebPagesDir)) {
         throw "Web pages directory not found: $WebPagesDir"
@@ -107,6 +123,9 @@ function Sync-WebPagesToContext([string]$WebPagesDir, [string]$ContextDir) {
     Write-Host ">> Synced web pages into container context."
 }
 
+# -----------------------------
+# Login and local prechecks
+# -----------------------------
 $script:AzExe = Resolve-AzExecutable
 Write-Host "Using Azure CLI: $script:AzExe"
 
@@ -125,6 +144,9 @@ if (-not (Test-Path -LiteralPath $ContextDir)) {
 
 Sync-WebPagesToContext -WebPagesDir $WebPagesDir -ContextDir $ContextDir
 
+# -----------------------------
+# Azure resource provisioning
+# -----------------------------
 Write-Host "Deployment configuration:"
 Write-Host "  ResourceGroup:    $ResourceGroup"
 Write-Host "  Location:         $Location"
@@ -147,6 +169,9 @@ if ([int]$acrCount -eq 0) {
 
 $imageRef = "$RegistryName.azurecr.io/$ImageName"
 
+# -----------------------------
+# Build and push container image
+# -----------------------------
 if (-not $SkipAcrBuild) {
     if ($UseLocalDockerBuild) {
         Invoke-LocalDockerBuildPush -ImageRef $imageRef -RegistryName $RegistryName -ContextDir $ContextDir
@@ -162,6 +187,9 @@ if (-not $SkipAcrBuild) {
     Write-Host ">> Skip ACR build as requested."
 }
 
+# -----------------------------
+# Container Apps environment and app deployment
+# -----------------------------
 Invoke-Az "extension add --name containerapp --upgrade --only-show-errors"
 Invoke-Az "provider register --namespace Microsoft.App --wait --only-show-errors"
 Invoke-Az "provider register --namespace Microsoft.OperationalInsights --wait --only-show-errors"
@@ -195,6 +223,7 @@ if ($secretPairs.Count -gt 0) {
     $secretArg = " --secrets " + ($secretPairs -join " ")
 }
 
+# Create app on first deploy; update image/config on subsequent deploys.
 $appCount = Invoke-Expression "& `"$script:AzExe`" containerapp list -g $ResourceGroup --query `"[?name=='$ContainerAppName'] | length(@)`" -o tsv"
 if ([int]$appCount -eq 0) {
     $createCmd = "containerapp create -g $ResourceGroup -n $ContainerAppName --environment $ContainerEnvName --image $imageRef --ingress external --target-port 8000 --registry-server $RegistryName.azurecr.io --registry-username $acrUser --registry-password $acrPass --cpu $Cpu --memory $Memory --min-replicas $MinReplicas --max-replicas $MaxReplicas$secretArg --env-vars $envVarsArg --only-show-errors"

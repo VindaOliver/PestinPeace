@@ -1,0 +1,71 @@
+name: Retrain Teppeki Demo Model (No Deploy)
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      weekly_csv:
+        description: "Path to weekly CSV inside repo"
+        required: false
+        default: "data/decision/weekly_observations.csv"
+      min_rows:
+        description: "Minimum rows for retraining"
+        required: false
+        default: "24"
+      label_source:
+        description: "teacher | existing | hybrid"
+        required: false
+        default: "hybrid"
+
+permissions:
+  contents: read
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scikit-learn
+
+      - name: Retrain weekly decision model
+        shell: bash
+        run: |
+          WEEKLY_CSV="${{ github.event.inputs.weekly_csv || 'data/decision/weekly_observations.csv' }}"
+          MIN_ROWS="${{ github.event.inputs.min_rows || '24' }}"
+          LABEL_SOURCE="${{ github.event.inputs.label_source || 'hybrid' }}"
+
+          python ml/tepp/auto_retrain_tepp.py \
+            --weekly-csv "$WEEKLY_CSV" \
+            --out-dir build/retrain/tepp \
+            --min-rows "$MIN_ROWS" \
+            --label-source "$LABEL_SOURCE" \
+            --fallback-synthetic
+
+      - name: Upload retrain artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tepp-retrain-artifacts-${{ github.run_id }}
+          path: |
+            build/retrain/tepp/tepp_demo_scope_model.pkl
+            build/retrain/tepp/tepp_demo_meta.json
+            build/retrain/tepp/weekly_training_dataset.csv
+            build/retrain/tepp/retrain_report.json
+          if-no-files-found: error
+
+      - name: Summary
+        shell: bash
+        run: |
+          echo "Retrain finished. No deployment performed."
+          echo "Download artifact 'tepp-retrain-artifacts-${{ github.run_id }}' for manual review/release."

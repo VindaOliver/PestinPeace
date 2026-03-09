@@ -1,3 +1,10 @@
+"""Train the demo weekly spray-scope model from synthetic data.
+
+This script is intended for demo reproducibility and model bootstrapping.
+It generates synthetic weekly records, derives weak labels with teacher rules,
+trains a multinomial logistic model, and writes model/meta artifacts.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +21,8 @@ from sklearn.preprocessing import StandardScaler
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI options for synthetic data generation and output paths."""
+
     parser = argparse.ArgumentParser(description="Train synthetic weekly Teppeki demo scope model.")
     parser.add_argument("--out-dir", default=".container_yolo26/model", help="Output directory for artifacts.")
     parser.add_argument("--start", default="2025-03-03", help="Start week (YYYY-MM-DD).")
@@ -23,16 +32,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
+    """Standard logistic transform used in synthetic risk generation."""
+
     return 1.0 / (1.0 + np.exp(-x))
 
 
 def vpd_kpa(t_c: np.ndarray, rh_pct: np.ndarray) -> np.ndarray:
+    """Compute VPD (kPa) from temperature and relative humidity arrays."""
+
     es = 0.6108 * np.exp((17.27 * t_c) / (t_c + 237.3))
     ea = es * (rh_pct / 100.0)
     return np.maximum(es - ea, 0.0)
 
 
 def make_synthetic_weeks(rng: np.random.Generator, start: str = "2025-03-03", n_weeks: int = 32) -> pd.DataFrame:
+    """Build synthetic weekly dataset with weather, trap counts, and derived features."""
+
     dates = pd.date_range(start=start, periods=n_weeks, freq="W-MON")
     df = pd.DataFrame(
         {
@@ -73,6 +88,8 @@ def make_synthetic_weeks(rng: np.random.Generator, start: str = "2025-03-03", n_
 
 
 def main() -> None:
+    """Run full synthetic training pipeline and write CSV/PKL/meta outputs."""
+
     args = parse_args()
     rng = np.random.default_rng(args.seed)
     out_dir = Path(args.out_dir)

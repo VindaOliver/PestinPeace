@@ -367,7 +367,9 @@
 </head>
 
 <body>
+  <!-- Page layout: decision input form + output cards + raw JSON -->
   <div class="wrap">
+    <!-- Shared top navigation across predict/telemetry/history/decision dashboards -->
     <div class="top-nav">
       <a id="predictNav" class="nav-btn" href="#">预测</a>
       <a id="telemetryNav" class="nav-btn" href="#">监测</a>
@@ -378,6 +380,7 @@
     <h1>Weekly Spray Strategy Demo</h1>
     <div class="subtitle">调用 <code>/decision/weekly</code>，输出 scope、water、product_kg 和 spray_l。</div>
 
+    <!-- Weekly decision input form -->
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
         <label for="endpoint">Decision Endpoint（决策接口地址，base URL 或 /decision/weekly）</label>
@@ -442,6 +445,7 @@
       </div>
     </div>
 
+    <!-- Action buttons: run decision, load sample, and health check -->
     <div class="actions">
       <button id="runBtn">运行策略测试</button>
       <button id="sampleBtn" class="secondary">填充高风险样例</button>
@@ -450,6 +454,7 @@
 
     <div id="status" class="status"></div>
 
+    <!-- Primary output cards -->
     <div class="cards">
       <div class="card">
         <div class="card-label">scope_class（喷施范围等级）</div>
@@ -469,6 +474,7 @@
       </div>
     </div>
 
+    <!-- Secondary output cards -->
     <div class="cards" style="margin-top: 0;">
       <div class="card">
         <div class="card-label">water_l_ha（单位面积水量，L/ha）</div>
@@ -485,6 +491,7 @@
     </div>
 
     <textarea id="result" readonly placeholder="Decision JSON（决策结果） will appear here..."></textarea>
+    <!-- Plain-language strategy explanation for non-technical viewers -->
     <div class="logic-note">
       <strong>策略逻辑说明：</strong>
       模型先根据黄板诱捕强度、趋势和天气给出喷施范围（不喷/边界带/全田），再由合规门控检查是否在可施药窗口且次数未超限；
@@ -494,10 +501,12 @@
   </div>
 
   <script>
+    // DOM references: shared nav links.
     const predictNav = document.getElementById("predictNav");
     const telemetryNav = document.getElementById("telemetryNav");
     const historyNav = document.getElementById("historyNav");
 
+    // DOM references: input fields and options.
     const endpointInput = document.getElementById("endpoint");
     const aphidCountInput = document.getElementById("aphidCount");
     const fieldAreaInput = document.getElementById("fieldArea");
@@ -512,12 +521,14 @@
     const appsSoFarInput = document.getElementById("appsSoFar");
     const respectGateInput = document.getElementById("respectGate");
 
+    // DOM references: actions and result region.
     const runBtn = document.getElementById("runBtn");
     const sampleBtn = document.getElementById("sampleBtn");
     const healthBtn = document.getElementById("healthBtn");
     const statusEl = document.getElementById("status");
     const resultEl = document.getElementById("result");
 
+    // DOM references: summary cards.
     const scopeClassEl = document.getElementById("scopeClass");
     const scopeNameEl = document.getElementById("scopeName");
     const productKgEl = document.getElementById("productKg");
@@ -526,6 +537,7 @@
     const treatedFractionEl = document.getElementById("treatedFraction");
     const gateReasonEl = document.getElementById("gateReason");
 
+    // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
       const path = window.location.pathname || "";
       if (path.endsWith("/decision/dashboard")) {
@@ -539,6 +551,7 @@
       }
     }
 
+    // Accept base URL or full /decision/weekly endpoint.
     function normalizeDecisionUrl(url) {
       const u = String(url || "").trim().replace(/\/+$/, "");
       if (!u) return "";
@@ -555,6 +568,7 @@
       statusEl.className = isError ? "status error" : "status";
     }
 
+    // Parse number inputs with required/optional semantics.
     function parseNumber(input, { required = false } = {}) {
       const raw = String(input.value ?? "").trim();
       if (!raw) {
@@ -568,6 +582,7 @@
       return value;
     }
 
+    // Push response fields into summary cards.
     function fillSummary(data) {
       scopeClassEl.textContent = data.scope_class ?? "-";
       scopeNameEl.textContent = data.scope_name ?? "-";
@@ -578,6 +593,7 @@
       gateReasonEl.textContent = (data.compliance && data.compliance.gate_reason) ? data.compliance.gate_reason : "-";
     }
 
+    // Build request body expected by /decision/weekly.
     function buildPayload() {
       const payload = {
         aphid_count: parseNumber(aphidCountInput, { required: true }),
@@ -605,6 +621,7 @@
       return payload;
     }
 
+    // Health check flow.
     healthBtn.addEventListener("click", async () => {
       try {
         const decisionUrl = normalizeDecisionUrl(endpointInput.value);
@@ -621,6 +638,7 @@
       }
     });
 
+    // Demo sample preset for quick testing.
     sampleBtn.addEventListener("click", () => {
       aphidCountInput.value = "45";
       fieldAreaInput.value = "3.5";
@@ -637,6 +655,7 @@
       setStatus("Loaded a high-risk sample input.");
     });
 
+    // Decision flow: POST payload and render outputs.
     runBtn.addEventListener("click", async () => {
       try {
         const decisionUrl = normalizeDecisionUrl(endpointInput.value);
