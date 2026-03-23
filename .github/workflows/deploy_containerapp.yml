@@ -46,6 +46,7 @@ jobs:
           cp apps/web/web_pages/local_web_client.html apps/api/container/local_web_client.html
           cp apps/web/web_pages/history_records.html apps/api/container/history_records.html
           cp apps/web/web_pages/decision_dashboard.html apps/api/container/decision_dashboard.html
+          cp apps/web/web_pages/forecast_dashboard.html apps/api/container/forecast_dashboard.html
 
       - name: Validate docker context files
         shell: bash
@@ -57,9 +58,12 @@ jobs:
           test -f apps/api/container/local_web_client.html
           test -f apps/api/container/history_records.html
           test -f apps/api/container/decision_dashboard.html
+          test -f apps/api/container/forecast_dashboard.html
           test -f apps/api/container/model/best.pt
           test -f apps/api/container/model/tepp_demo_scope_model.pkl
           test -f apps/api/container/model/tepp_demo_meta.json
+          test -f apps/api/container/model/aphid_forecast_model.pkl
+          test -f apps/api/container/model/aphid_forecast_meta.json
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -110,6 +114,13 @@ jobs:
           curl -f -X POST "https://${FQDN}/decision/weekly" \
             -H "Content-Type: application/json" \
             -d '{"aphid_count":2,"field_area_ha":1.0}'
+
+      - name: Weekly forecast smoke test
+        shell: bash
+        run: |
+          curl -f -X POST "https://${FQDN}/forecast/weekly" \
+            -H "Content-Type: application/json" \
+            -d '{"aphid_count":2,"exposure_days":7,"t_mean":16.0,"rh_mean":70.0,"pressure_mean":1012.0,"t_forecast":18.0,"rh_forecast":74.0,"pressure_forecast":1009.0}'
 
       - name: Summary
         shell: bash

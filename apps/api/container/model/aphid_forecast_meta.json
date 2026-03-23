@@ -1,0 +1,86 @@
+{
+  "feature_cols": [
+    "log_catch",
+    "catch_trend",
+    "T_mean",
+    "RH_mean",
+    "pressure_mean",
+    "VPD_mean",
+    "T_forecast",
+    "RH_forecast",
+    "pressure_forecast",
+    "VPD_forecast",
+    "temp_delta",
+    "rh_delta",
+    "pressure_delta",
+    "doy_sin",
+    "doy_cos",
+    "in_tepp_window"
+  ],
+  "stable_band": 0.3,
+  "trend_labels": {
+    "-1": "down",
+    "0": "stable",
+    "1": "up"
+  },
+  "trained_at_utc": "2026-03-23T14:03:20.622305+00:00",
+  "data_summary": {
+    "source": "real_plus_synthetic",
+    "rows_total": 36,
+    "rows_real": 2,
+    "rows_synthetic": 34,
+    "class_counts": {
+      "-1": 5,
+      "0": 10,
+      "1": 21
+    }
+  },
+  "classification_metrics": {
+    "evaluation_mode": "holdout",
+    "accuracy": 0.5555555555555556,
+    "macro_f1": 0.4166666666666667,
+    "report": {
+      "-1": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 1.0
+      },
+      "0": {
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1-score": 0.75,
+        "support": 3.0
+      },
+      "1": {
+        "precision": 0.6666666666666666,
+        "recall": 0.4,
+        "f1-score": 0.5,
+        "support": 5.0
+      },
+      "accuracy": 0.5555555555555556,
+      "macro avg": {
+        "precision": 0.4222222222222222,
+        "recall": 0.4666666666666666,
+        "f1-score": 0.4166666666666667,
+        "support": 9.0
+      },
+      "weighted avg": {
+        "precision": 0.5703703703703703,
+        "recall": 0.5555555555555556,
+        "f1-score": 0.5277777777777778,
+        "support": 9.0
+      }
+    },
+    "train_rows": 27,
+    "test_rows": 9
+  },
+  "regression_metrics": {
+    "evaluation_mode": "holdout",
+    "mae_next_catch_rate": 1.270446036802922,
+    "r2_next_catch_rate": 0.9580293173553278,
+    "train_rows": 27,
+    "test_rows": 9
+  },
+  "notes": "Forecast model trained from weekly observations with synthetic fallback."
+}

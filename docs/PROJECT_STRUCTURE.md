@@ -13,6 +13,7 @@ clients/
 ml/
   yolo/               # YOLO training scripts/config/weights
   tepp/               # Teppeki demo training script
+  forecast/           # Weekly aphid trend forecast training script
 scripts/
   deploy/             # Packaging and Azure deployment scripts
 docs/                 # Operational and usage docs

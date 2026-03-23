@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aphid Forecast Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-start: #edf8f0;
+      --bg-end: #f7fbf8;
+      --card: rgba(255, 255, 255, 0.7);
+      --card-border: rgba(255, 255, 255, 0.56);
+      --text: #13251d;
+      --muted: #5f7468;
+      --line: #dce9df;
+      --accent: #1f8f5f;
+      --accent-dark: #166844;
+      --accent-glow: rgba(31, 143, 95, 0.22);
+      --gradient-btn: linear-gradient(135deg, #1f8f5f, #104f34);
+      --gradient-btn-hover: linear-gradient(135deg, #28a46e, #176845);
+      --secondary: linear-gradient(135deg, #64748b, #475569);
+      --danger: #c73939;
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Inter", "Segoe UI", "Noto Sans SC", sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+      padding: 28px 18px;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(110px);
+      opacity: 0.26;
+      z-index: 0;
+    }
+
+    body::before {
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, #6ee7b7 0%, transparent 72%);
+      top: -90px;
+      left: -70px;
+    }
+
+    body::after {
+      width: 380px;
+      height: 380px;
+      background: radial-gradient(circle, #93c5fd 0%, transparent 72%);
+      right: -50px;
+      bottom: -70px;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1180px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 30px;
+      backdrop-filter: blur(22px) saturate(1.4);
+      -webkit-backdrop-filter: blur(22px) saturate(1.4);
+      box-shadow: 0 14px 38px rgba(17, 38, 29, 0.08);
+    }
+
+    .top-nav {
+      display: inline-flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 4px;
+      margin-bottom: 28px;
+      background: rgba(15, 23, 42, 0.06);
+      border-radius: 14px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 16px;
+      border-radius: 11px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.22s ease;
+    }
+
+    .nav-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .nav-btn.active {
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    h1 {
+      font-size: 29px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.65;
+      margin-bottom: 24px;
+      max-width: 960px;
+    }
+
+    .section-title {
+      margin: 20px 0 10px 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-dark);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--text);
+      outline: none;
+      transition: all 0.24s ease;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3.5px var(--accent-glow);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+      margin-bottom: 18px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--gradient-btn);
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.22s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: var(--gradient-btn-hover);
+    }
+
+    button.secondary {
+      background: var(--secondary);
+      box-shadow: 0 4px 14px rgba(71, 85, 105, 0.22);
+    }
+
+    .status {
+      min-height: 18px;
+      margin: 4px 0 16px 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      padding: 14px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .card-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.24;
+      word-break: break-word;
+    }
+
+    textarea {
+      min-height: 280px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12.5px;
+      line-height: 1.48;
+    }
+
+    .logic-note {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.56);
+      color: #1f2937;
+      font-size: 13.5px;
+      line-height: 1.68;
+    }
+
+    .logic-note strong {
+      color: var(--accent-dark);
+    }
+
+    @media (max-width: 980px) {
+      .grid,
+      .cards {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 16px 12px; }
+      .wrap { padding: 20px; border-radius: 16px; }
+      .grid,
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-nav">
+      <a id="predictNav" class="nav-btn" href="#">Predict</a>
+      <a id="telemetryNav" class="nav-btn" href="#">Telemetry</a>
+      <a id="historyNav" class="nav-btn" href="#">History</a>
+      <a id="decisionNav" class="nav-btn" href="#">Decision</a>
+      <a class="nav-btn active" href="#">Forecast</a>
+    </div>
+
+    <h1>Weekly Aphid Trend Forecast</h1>
+    <div class="subtitle">
+      这个页面同时支持手工模式和自动模式。手工模式直接调用 <code>/forecast/weekly</code>；
+      自动模式调用 <code>/forecast/auto</code>，它会按你发起请求的时间向前滚动抓取最近 N 天 Azure Table 中的温度、湿度、气压和虫量记录，
+      再结合伦敦未来天气预报来判断虫量上升、下降还是持平。
+    </div>
+
+    <div class="field" style="margin-bottom: 16px;">
+      <label for="endpoint">Forecast Endpoint (base URL or full /forecast/... URL)</label>
+      <input id="endpoint" type="text" value="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/forecast/weekly" />
+    </div>
+
+    <div class="section-title">Azure Auto Source</div>
+    <div class="grid">
+      <div class="field">
+        <label for="deviceId">device_id</label>
+        <input id="deviceId" type="text" value="trap-001" />
+      </div>
+      <div class="field">
+        <label for="autoDays">days</label>
+        <input id="autoDays" type="number" min="3" max="14" step="1" value="7" />
+      </div>
+    </div>
+
+    <div class="section-title">Manual Current Window Inputs</div>
+    <div class="grid">
+      <div class="field">
+        <label for="aphidCount">aphid_count</label>
+        <input id="aphidCount" type="number" min="0" step="1" value="12" />
+      </div>
+      <div class="field">
+        <label for="exposureDays">exposure_days</label>
+        <input id="exposureDays" type="number" min="1" max="14" step="1" value="7" />
+      </div>
+      <div class="field">
+        <label for="weekStart">week_start</label>
+        <input id="weekStart" type="date" value="2026-03-23" />
+      </div>
+      <div class="field">
+        <label for="prevCatchRate">prev_catch_rate</label>
+        <input id="prevCatchRate" type="number" min="0" step="0.01" value="1.10" />
+      </div>
+      <div class="field">
+        <label for="tMean">t_mean</label>
+        <input id="tMean" type="number" step="0.1" value="18.2" />
+      </div>
+      <div class="field">
+        <label for="rhMean">rh_mean</label>
+        <input id="rhMean" type="number" min="0" max="100" step="0.1" value="67.5" />
+      </div>
+      <div class="field">
+        <label for="pressureMean">pressure_mean</label>
+        <input id="pressureMean" type="number" step="0.1" value="1011.8" />
+      </div>
+    </div>
+
+    <div class="section-title">Manual Forecast Weather</div>
+    <div class="grid">
+      <div class="field">
+        <label for="tForecast">t_forecast</label>
+        <input id="tForecast" type="number" step="0.1" value="21.4" />
+      </div>
+      <div class="field">
+        <label for="rhForecast">rh_forecast</label>
+        <input id="rhForecast" type="number" min="0" max="100" step="0.1" value="72.0" />
+      </div>
+      <div class="field">
+        <label for="pressureForecast">pressure_forecast</label>
+        <input id="pressureForecast" type="number" step="0.1" value="1008.4" />
+      </div>
+      <div class="field">
+        <label for="forecastSource">forecast_source</label>
+        <input id="forecastSource" type="text" value="manual_demo" />
+      </div>
+      <div class="field">
+        <label for="forecastGeneratedAt">forecast_generated_at</label>
+        <input id="forecastGeneratedAt" type="datetime-local" value="2026-03-23T09:00" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="runBtn">Run Manual Forecast</button>
+      <button id="autoBtn">Auto from Azure + London Forecast</button>
+      <button id="riseSampleBtn" class="secondary">Load Rising Sample</button>
+      <button id="fallSampleBtn" class="secondary">Load Falling Sample</button>
+      <button id="healthBtn" class="secondary">Check Health</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">trend_label</div>
+        <div class="card-value" id="trendLabel">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">trend_confidence</div>
+        <div class="card-value" id="trendConfidence">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">next_count_estimate</div>
+        <div class="card-value" id="nextCount">-</div>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">next_catch_rate_estimate</div>
+        <div class="card-value" id="nextCatchRate">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">delta_catch_rate_estimate</div>
+        <div class="card-value" id="deltaCatchRate">-</div>
+      </div>
+      <div class="card">
+        <div class="card-label">model / data source</div>
+        <div class="card-value" id="modelSource" style="font-size: 15px;">-</div>
+      </div>
+    </div>
+
+    <textarea id="result" readonly placeholder="Forecast JSON will appear here..."></textarea>
+
+    <div class="logic-note">
+      <strong>说明:</strong>
+      <code>next_count_estimate</code> 是统计预测值，不是未来真实检测结果。
+      如果你希望自动模式按设备严格聚合虫量，请让图片识别请求也带上同一个 <code>device_id</code>，
+      因为服务端会把每次 <code>/predict</code> 的检测数量同步写入 Azure Table，并按该分区回查最近 7 天的虫量历史。
+    </div>
+  </div>
+
+  <script>
+    const predictNav = document.getElementById("predictNav");
+    const telemetryNav = document.getElementById("telemetryNav");
+    const historyNav = document.getElementById("historyNav");
+    const decisionNav = document.getElementById("decisionNav");
+
+    const endpointInput = document.getElementById("endpoint");
+    const deviceIdInput = document.getElementById("deviceId");
+    const autoDaysInput = document.getElementById("autoDays");
+    const aphidCountInput = document.getElementById("aphidCount");
+    const exposureDaysInput = document.getElementById("exposureDays");
+    const weekStartInput = document.getElementById("weekStart");
+    const prevCatchRateInput = document.getElementById("prevCatchRate");
+    const tMeanInput = document.getElementById("tMean");
+    const rhMeanInput = document.getElementById("rhMean");
+    const pressureMeanInput = document.getElementById("pressureMean");
+    const tForecastInput = document.getElementById("tForecast");
+    const rhForecastInput = document.getElementById("rhForecast");
+    const pressureForecastInput = document.getElementById("pressureForecast");
+    const forecastSourceInput = document.getElementById("forecastSource");
+    const forecastGeneratedAtInput = document.getElementById("forecastGeneratedAt");
+
+    const runBtn = document.getElementById("runBtn");
+    const autoBtn = document.getElementById("autoBtn");
+    const riseSampleBtn = document.getElementById("riseSampleBtn");
+    const fallSampleBtn = document.getElementById("fallSampleBtn");
+    const healthBtn = document.getElementById("healthBtn");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+
+    const trendLabelEl = document.getElementById("trendLabel");
+    const trendConfidenceEl = document.getElementById("trendConfidence");
+    const nextCountEl = document.getElementById("nextCount");
+    const nextCatchRateEl = document.getElementById("nextCatchRate");
+    const deltaCatchRateEl = document.getElementById("deltaCatchRate");
+    const modelSourceEl = document.getElementById("modelSource");
+
+    function configureNavigation() {
+      const path = window.location.pathname || "";
+      if (path.endsWith("/forecast/dashboard")) {
+        predictNav.href = `${window.location.origin}/predict/dashboard`;
+        telemetryNav.href = `${window.location.origin}/telemetry/dashboard`;
+        historyNav.href = `${window.location.origin}/history/dashboard`;
+        decisionNav.href = `${window.location.origin}/decision/dashboard`;
+      } else {
+        predictNav.href = "./local_web_client.html";
+        telemetryNav.href = "./telemetry_dashboard.html";
+        historyNav.href = "./history_records.html";
+        decisionNav.href = "./decision_dashboard.html";
+      }
+    }
+
+    function normalizeBaseUrl(url) {
+      const value = String(url || "").trim().replace(/\/+$/, "");
+      if (!value) return "";
+      if (value.endsWith("/forecast/weekly")) return value.replace(/\/forecast\/weekly$/, "");
+      if (value.endsWith("/forecast/auto")) return value.replace(/\/forecast\/auto$/, "");
+      if (value.endsWith("/health")) return value.replace(/\/health$/, "");
+      return value;
+    }
+
+    function weeklyUrlFromInput(url) {
+      const base = normalizeBaseUrl(url);
+      return base ? `${base}/forecast/weekly` : "";
+    }
+
+    function autoUrlFromInput(url) {
+      const base = normalizeBaseUrl(url);
+      return base ? `${base}/forecast/auto` : "";
+    }
+
+    function healthUrlFromInput(url) {
+      const base = normalizeBaseUrl(url);
+      return base ? `${base}/health` : "";
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.className = isError ? "status error" : "status";
+    }
+
+    function parseNumber(input, { required = false } = {}) {
+      const raw = String(input.value ?? "").trim();
+      if (!raw) {
+        if (required) throw new Error(`Missing value: ${input.id}`);
+        return undefined;
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        throw new Error(`Invalid number: ${input.id}`);
+      }
+      return value;
+    }
+
+    function buildPayload() {
+      return {
+        aphid_count: parseNumber(aphidCountInput, { required: true }),
+        exposure_days: parseNumber(exposureDaysInput, { required: true }),
+        week_start: weekStartInput.value || undefined,
+        prev_catch_rate: parseNumber(prevCatchRateInput),
+        t_mean: parseNumber(tMeanInput, { required: true }),
+        rh_mean: parseNumber(rhMeanInput, { required: true }),
+        pressure_mean: parseNumber(pressureMeanInput),
+        t_forecast: parseNumber(tForecastInput, { required: true }),
+        rh_forecast: parseNumber(rhForecastInput, { required: true }),
+        pressure_forecast: parseNumber(pressureForecastInput),
+        forecast_source: String(forecastSourceInput.value || "").trim() || undefined,
+        forecast_generated_at: String(forecastGeneratedAtInput.value || "").trim() || undefined
+      };
+    }
+
+    function fillSummary(data) {
+      trendLabelEl.textContent = data.trend_label ?? "-";
+      trendConfidenceEl.textContent = data.trend_confidence ?? "-";
+      nextCountEl.textContent = data.next_count_estimate ?? "-";
+      nextCatchRateEl.textContent = data.next_catch_rate_estimate ?? "-";
+      deltaCatchRateEl.textContent = data.delta_catch_rate_estimate ?? "-";
+      const quality = data.data_quality ? ` / ${data.data_quality}` : "";
+      const source = data.model ? `${data.model.source || "-"} / ${data.model.data_source || "-"}${quality}` : quality || "-";
+      modelSourceEl.textContent = source;
+    }
+
+    riseSampleBtn.addEventListener("click", () => {
+      aphidCountInput.value = "14";
+      exposureDaysInput.value = "7";
+      weekStartInput.value = "2026-04-06";
+      prevCatchRateInput.value = "1.20";
+      tMeanInput.value = "17.8";
+      rhMeanInput.value = "66.0";
+      pressureMeanInput.value = "1012.2";
+      tForecastInput.value = "21.8";
+      rhForecastInput.value = "73.0";
+      pressureForecastInput.value = "1008.6";
+      forecastSourceInput.value = "manual_demo";
+      forecastGeneratedAtInput.value = "2026-04-05T09:00";
+      setStatus("Loaded a likely-rising sample.");
+    });
+
+    fallSampleBtn.addEventListener("click", () => {
+      aphidCountInput.value = "20";
+      exposureDaysInput.value = "7";
+      weekStartInput.value = "2026-09-21";
+      prevCatchRateInput.value = "2.40";
+      tMeanInput.value = "15.0";
+      rhMeanInput.value = "71.0";
+      pressureMeanInput.value = "1010.6";
+      tForecastInput.value = "10.2";
+      rhForecastInput.value = "58.0";
+      pressureForecastInput.value = "1018.4";
+      forecastSourceInput.value = "manual_demo";
+      forecastGeneratedAtInput.value = "2026-09-20T09:00";
+      setStatus("Loaded a likely-falling sample.");
+    });
+
+    healthBtn.addEventListener("click", async () => {
+      try {
+        const healthUrl = healthUrlFromInput(endpointInput.value);
+        if (!healthUrl) throw new Error("Endpoint is empty");
+        setStatus(`Checking health: ${healthUrl}`);
+        const res = await fetch(healthUrl, { method: "GET" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setStatus("Health check passed.");
+        resultEl.value = JSON.stringify(data, null, 2);
+      } catch (err) {
+        setStatus(`Health check failed: ${err.message}`, true);
+      }
+    });
+
+    runBtn.addEventListener("click", async () => {
+      try {
+        const forecastUrl = weeklyUrlFromInput(endpointInput.value);
+        if (!forecastUrl) throw new Error("Endpoint is empty");
+        const payload = buildPayload();
+        setStatus("Running manual forecast...");
+        const res = await fetch(forecastUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`HTTP ${res.status} ${body}`);
+        }
+        const data = await res.json();
+        fillSummary(data);
+        resultEl.value = JSON.stringify(data, null, 2);
+        const warningNote = Array.isArray(data.warnings) && data.warnings.length ? `, warnings=${data.warnings.length}` : "";
+        setStatus(`Manual forecast success: trend=${data.trend_label}, next_count=${data.next_count_estimate}${warningNote}`);
+      } catch (err) {
+        setStatus(`Manual forecast failed: ${err.message}`, true);
+      }
+    });
+
+    autoBtn.addEventListener("click", async () => {
+      try {
+        const forecastUrl = autoUrlFromInput(endpointInput.value);
+        const deviceId = String(deviceIdInput.value || "").trim();
+        const days = parseNumber(autoDaysInput, { required: true });
+        if (!forecastUrl) throw new Error("Endpoint is empty");
+        if (!deviceId) throw new Error("Missing device_id");
+
+        const url = new URL(forecastUrl);
+        url.searchParams.set("device_id", deviceId);
+        url.searchParams.set("days", String(days));
+
+        setStatus(`Running auto forecast for ${deviceId}...`);
+        const res = await fetch(url.toString(), { method: "GET" });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`HTTP ${res.status} ${body}`);
+        }
+        const data = await res.json();
+        fillSummary(data);
+        resultEl.value = JSON.stringify(data, null, 2);
+        const quality = data.data_quality ? `, quality=${data.data_quality}` : "";
+        const warningNote = Array.isArray(data.warnings) && data.warnings.length ? `, warnings=${data.warnings.length}` : "";
+        setStatus(`Auto forecast success: trend=${data.trend_label}, next_count=${data.next_count_estimate}${quality}${warningNote}`);
+      } catch (err) {
+        setStatus(`Auto forecast failed: ${err.message}`, true);
+      }
+    });
+
+    configureNavigation();
+  </script>
+</body>
+</html>

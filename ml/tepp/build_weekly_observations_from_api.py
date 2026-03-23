@@ -2,7 +2,7 @@
 
 Data sources:
 1) /history for weekly aphid count proxy
-2) /telemetry/latest for weekly mean temperature/humidity
+2) /telemetry/latest for weekly mean temperature/humidity/pressure
 """
 
 from __future__ import annotations
@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--field-area-ha", type=float, default=1.0, help="Default field area value.")
     parser.add_argument("--default-t-mean", type=float, default=15.0, help="Fallback weekly mean temperature.")
     parser.add_argument("--default-rh-mean", type=float, default=70.0, help="Fallback weekly mean humidity.")
+    parser.add_argument("--default-pressure-mean", type=float, default=1013.25, help="Fallback weekly mean pressure.")
     parser.add_argument("--timeout-sec", type=int, default=30, help="HTTP timeout seconds.")
     parser.add_argument(
         "--strict",
@@ -162,22 +163,24 @@ def fetch_telemetry(base_url: str, device_ids: list[str], limit: int, api_key: s
                 continue
             temp = pd.to_numeric(item.get("temperature"), errors="coerce")
             hum = pd.to_numeric(item.get("humidity"), errors="coerce")
+            pressure = pd.to_numeric(item.get("pressure_hpa"), errors="coerce")
             rows.append(
                 {
                     "timestamp_utc": ts,
                     "device_id": device_id,
                     "temperature": np.nan if pd.isna(temp) else float(temp),
                     "humidity": np.nan if pd.isna(hum) else float(hum),
+                    "pressure_hpa": np.nan if pd.isna(pressure) else float(pressure),
                 }
             )
     return pd.DataFrame(rows)
 
 
 def aggregate_telemetry_weekly(telemetry_df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate raw telemetry rows into weekly mean temperature/humidity."""
+    """Aggregate raw telemetry rows into weekly mean temperature/humidity/pressure."""
 
     if telemetry_df.empty:
-        return pd.DataFrame(columns=["week_start", "T_mean", "RH_mean", "telemetry_records"])
+        return pd.DataFrame(columns=["week_start", "T_mean", "RH_mean", "pressure_mean", "telemetry_records"])
 
     df = telemetry_df.copy()
     df["week_start"] = _week_start_monday(df["timestamp_utc"])
@@ -186,6 +189,7 @@ def aggregate_telemetry_weekly(telemetry_df: pd.DataFrame) -> pd.DataFrame:
         .agg(
             T_mean=("temperature", "mean"),
             RH_mean=("humidity", "mean"),
+            pressure_mean=("pressure_hpa", "mean"),
             telemetry_records=("device_id", "size"),
         )
         .sort_values("week_start")
@@ -200,6 +204,7 @@ def build_weekly_observations(
     field_area_ha: float,
     default_t_mean: float,
     default_rh_mean: float,
+    default_pressure_mean: float,
 ) -> pd.DataFrame:
     """Merge weekly history + telemetry and fill mandatory retraining columns."""
 
@@ -212,6 +217,7 @@ def build_weekly_observations(
                 "field_area_ha",
                 "T_mean",
                 "RH_mean",
+                "pressure_mean",
                 "in_tepp_window",
                 "apps_so_far",
                 "history_records",
@@ -222,6 +228,9 @@ def build_weekly_observations(
     merged = history_weekly.merge(telemetry_weekly, on="week_start", how="left")
     merged["T_mean"] = pd.to_numeric(merged["T_mean"], errors="coerce").fillna(default_t_mean)
     merged["RH_mean"] = pd.to_numeric(merged["RH_mean"], errors="coerce").fillna(default_rh_mean).clip(lower=0, upper=100)
+    merged["pressure_mean"] = pd.to_numeric(merged.get("pressure_mean", np.nan), errors="coerce").fillna(
+        default_pressure_mean
+    )
 
     week_dt = pd.to_datetime(merged["week_start"], errors="coerce")
     doy = week_dt.dt.dayofyear.fillna(0).astype(int)
@@ -237,6 +246,7 @@ def build_weekly_observations(
         "field_area_ha",
         "T_mean",
         "RH_mean",
+        "pressure_mean",
         "in_tepp_window",
         "apps_so_far",
         "history_records",
@@ -274,6 +284,7 @@ def main() -> None:
         field_area_ha=args.field_area_ha,
         default_t_mean=args.default_t_mean,
         default_rh_mean=args.default_rh_mean,
+        default_pressure_mean=args.default_pressure_mean,
     )
 
     out_path = Path(args.out_csv)
