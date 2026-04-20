@@ -131,6 +131,7 @@ curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azureco
 - `third_party/`：外部代码
 
 详细结构说明见：`docs/PROJECT_STRUCTURE.md`。
+文档导航见：`docs/README.md`。
 
 ## 4. 本地页面
 

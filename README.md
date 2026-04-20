@@ -161,6 +161,7 @@ Top navigation is linked across all three pages.
 - `third_party/`: vendor/external code (kept separate)
 
 Detailed structure note: `docs/PROJECT_STRUCTURE.md`.
+Documentation index: `docs/README.md`.
 
 ## 4. Azure Resources (Current)
 

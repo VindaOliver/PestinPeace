@@ -1,0 +1,161 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-08-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "dataCollectionRuleName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the DCR that ingests Azure Table rows into Log Analytics custom tables."
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure region for the DCR. Must match the workspace region."
+      }
+    },
+    "workspaceResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the target Log Analytics workspace."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/dataCollectionRules",
+      "apiVersion": "2023-03-11",
+      "name": "[parameters('dataCollectionRuleName')]",
+      "location": "[parameters('location')]",
+      "kind": "Direct",
+      "properties": {
+        "streamDeclarations": {
+          "Custom-IoTTelemetryRaw": {
+            "columns": [
+              {
+                "name": "PartitionKey",
+                "type": "string"
+              },
+              {
+                "name": "RowKey",
+                "type": "string"
+              },
+              {
+                "name": "device_id",
+                "type": "string"
+              },
+              {
+                "name": "ts",
+                "type": "string"
+              },
+              {
+                "name": "temperature",
+                "type": "real"
+              },
+              {
+                "name": "humidity",
+                "type": "real"
+              },
+              {
+                "name": "pressure_hpa",
+                "type": "real"
+              },
+              {
+                "name": "light",
+                "type": "real"
+              },
+              {
+                "name": "created_at",
+                "type": "string"
+              }
+            ]
+          },
+          "Custom-AphidCountsRaw": {
+            "columns": [
+              {
+                "name": "PartitionKey",
+                "type": "string"
+              },
+              {
+                "name": "RowKey",
+                "type": "string"
+              },
+              {
+                "name": "device_id",
+                "type": "string"
+              },
+              {
+                "name": "source_device_id",
+                "type": "string"
+              },
+              {
+                "name": "request_id",
+                "type": "string"
+              },
+              {
+                "name": "ts",
+                "type": "string"
+              },
+              {
+                "name": "filename",
+                "type": "string"
+              },
+              {
+                "name": "count",
+                "type": "int"
+              },
+              {
+                "name": "image_blob_name",
+                "type": "string"
+              },
+              {
+                "name": "history_blob_name",
+                "type": "string"
+              },
+              {
+                "name": "created_at",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "destinations": {
+          "logAnalytics": [
+            {
+              "workspaceResourceId": "[parameters('workspaceResourceId')]",
+              "name": "workspace"
+            }
+          ]
+        },
+        "dataFlows": [
+          {
+            "streams": [
+              "Custom-IoTTelemetryRaw"
+            ],
+            "destinations": [
+              "workspace"
+            ],
+            "transformKql": "source | project TimeGenerated = iff(isnotempty(['ts']), todatetime(['ts']), iff(isnotempty(['created_at']), todatetime(['created_at']), now())), PartitionKey = tostring(['PartitionKey']), RowKey = tostring(['RowKey']), DeviceId = tostring(['device_id']), Ts = todatetime(['ts']), Temperature = toreal(['temperature']), Humidity = toreal(['humidity']), PressureHpa = toreal(['pressure_hpa']), Light = toreal(['light']), CreatedAt = todatetime(['created_at'])",
+            "outputStream": "Custom-IoTTelemetry_CL"
+          },
+          {
+            "streams": [
+              "Custom-AphidCountsRaw"
+            ],
+            "destinations": [
+              "workspace"
+            ],
+            "transformKql": "source | project TimeGenerated = iff(isnotempty(['ts']), todatetime(['ts']), iff(isnotempty(['created_at']), todatetime(['created_at']), now())), PartitionKey = tostring(['PartitionKey']), RowKey = tostring(['RowKey']), DeviceId = tostring(['device_id']), SourceDeviceId = tostring(['source_device_id']), RequestId = tostring(['request_id']), Ts = todatetime(['ts']), Filename = tostring(['filename']), Count = toint(['count']), ImageBlobName = tostring(['image_blob_name']), HistoryBlobName = tostring(['history_blob_name']), CreatedAt = todatetime(['created_at'])",
+            "outputStream": "Custom-AphidCounts_CL"
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "dataCollectionRuleId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/dataCollectionRules', parameters('dataCollectionRuleName'))]"
+    }
+  }
+}

@@ -1,0 +1,92 @@
+name: Sync Azure Tables To Log Analytics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID || '411ad807-be68-4d9c-bbe2-d99cfc655c4d' }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID || '1faf88fe-a998-4c5b-93c9-210a11d9a5c2' }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || '2685e946-e7eb-4d8a-ac8c-e899199ab4b3' }}
+
+      - name: Resolve sync variables
+        shell: bash
+        run: |
+          RESOURCE_GROUP="${{ vars.RESOURCE_GROUP }}"
+          if [ -z "$RESOURCE_GROUP" ]; then
+            RESOURCE_GROUP="rg-aphid-yolo-payg"
+          fi
+
+          STORAGE_ACCOUNT_NAME="${{ vars.STORAGE_ACCOUNT_NAME }}"
+          if [ -z "$STORAGE_ACCOUNT_NAME" ]; then
+            STORAGE_ACCOUNT_NAME="staphidpayg9547"
+          fi
+
+          DCR_NAME="${{ vars.LOG_ANALYTICS_SYNC_DCR_NAME }}"
+          if [ -z "$DCR_NAME" ]; then
+            DCR_NAME="dcr-azure-table-sync"
+          fi
+
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> "$GITHUB_ENV"
+          echo "STORAGE_ACCOUNT_NAME=$STORAGE_ACCOUNT_NAME" >> "$GITHUB_ENV"
+          echo "DCR_NAME=$DCR_NAME" >> "$GITHUB_ENV"
+
+      - name: Discover DCR metadata
+        shell: bash
+        run: |
+          DCR_IMMUTABLE_ID="$(az monitor data-collection rule show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$DCR_NAME" \
+            --query immutableId \
+            --output tsv)"
+
+          DCR_ENDPOINT="$(az monitor data-collection rule show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$DCR_NAME" \
+            --query endpoints.logsIngestion \
+            --output tsv)"
+
+          STORAGE_ACCOUNT_KEY="$(az storage account keys list \
+            --resource-group "$RESOURCE_GROUP" \
+            --account-name "$STORAGE_ACCOUNT_NAME" \
+            --query '[0].value' \
+            --output tsv)"
+
+          echo "DCR_IMMUTABLE_ID=$DCR_IMMUTABLE_ID" >> "$GITHUB_ENV"
+          echo "DCR_ENDPOINT=$DCR_ENDPOINT" >> "$GITHUB_ENV"
+          echo "AZURE_STORAGE_KEY=$STORAGE_ACCOUNT_KEY" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install sync dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install azure-data-tables azure-identity azure-monitor-ingestion
+
+      - name: Run sync
+        shell: bash
+        run: |
+          python scripts/sync/sync_azure_tables_to_log_analytics.py \
+            --storage-account-name "$STORAGE_ACCOUNT_NAME" \
+            --storage-account-key "$AZURE_STORAGE_KEY" \
+            --dcr-endpoint "$DCR_ENDPOINT" \
+            --dcr-immutable-id "$DCR_IMMUTABLE_ID"

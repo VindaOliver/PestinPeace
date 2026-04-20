@@ -752,3 +752,255 @@ clients/raspberry_pi_decision/pi_weekly_decision.py
 如果后续要继续升级，最自然的方向就是：
 
 把云端 forecast 的结果真正接入 decision 层，再配合趋势平滑、双阈值、日级执行窗口和喷后反馈，形成更稳健的慢控制闭环。
+
+---
+
+## 10. 当前 PAYG 部署环境
+
+从 2026-04-20 开始，这个项目的线上运行环境已经切到新的 Azure Pay-As-You-Go 订阅，不再依赖之前的学生订阅。
+
+当前线上环境如下：
+
+- Subscription: `Azure subscription 1`
+- Subscription ID: `2685e946-e7eb-4d8a-ac8c-e899199ab4b3`
+- Resource Group: `rg-aphid-yolo-payg`
+- ACR: `acraphidyolo9547`
+- Storage Account: `staphidpayg9547`
+- Container App: `aca-aphid-yolo`
+- App URL: `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`
+
+当前 PAYG 存储里已经有这两张业务表：
+
+- `iottelemetry`
+- `aphidcounts`
+
+要注意一件事：
+
+- 旧学生订阅里的历史数据没有一起迁过来
+- 迁过来的是应用、配置、部署链路和表结构
+- 所以现在系统功能是延续的，但历史数据不是完全继承的
+
+---
+
+## 11. 当前完整部署流程
+
+如果用最通俗的话来讲，现在这套部署流程就是：
+
+```text
+本地改代码
+-> push 到 GitHub main
+-> GitHub Actions 自动构建镜像
+-> 自动推到 Azure Container Registry
+-> 自动更新 Azure Container App
+-> 自动做健康检查和 smoke test
+```
+
+### 11.1 GitHub 自动更新
+
+当前仓库是：
+
+```text
+https://github.com/VindaOliver/PestinPeace
+```
+
+部署工作流文件是：
+
+```text
+.github/workflows/deploy_containerapp.yml
+```
+
+它的触发方式是：
+
+- push 到 `main`
+- 手动 `workflow_dispatch`
+
+也就是说，只要我们把改动 push 到 `main`，GitHub Actions 就会自动开始部署。
+
+---
+
+### 11.2 GitHub Actions 现在依赖的关键变量
+
+仓库里现在已经配置好的 Actions Variables 是：
+
+- `ACR_NAME = acraphidyolo9547`
+- `RESOURCE_GROUP = rg-aphid-yolo-payg`
+- `CONTAINER_APP_NAME = aca-aphid-yolo`
+- `IMAGE_REPO = aphid-yolo26`
+- `AZURE_SUBSCRIPTION_ID = 2685e946-e7eb-4d8a-ac8c-e899199ab4b3`
+- `AZURE_TENANT_ID = 1faf88fe-a998-4c5b-93c9-210a11d9a5c2`
+- `AZURE_CLIENT_ID = 411ad807-be68-4d9c-bbe2-d99cfc655c4d`
+
+这些值现在已经全部改成 PAYG 的配置。
+
+---
+
+### 11.3 Azure 自动部署现在是怎么完成的
+
+GitHub Actions 现在通过 OIDC 登录 Azure，不是用传统的 client secret。
+
+对应的 GitHub OIDC 服务主体已经在 PAYG 订阅里配置好了权限：
+
+- 对资源组 `rg-aphid-yolo-payg` 有 `Contributor`
+- 对 ACR `acraphidyolo9547` 有 `AcrPush`
+
+这意味着 GitHub Actions 现在可以自动做两件事：
+
+1. 把新镜像推到 ACR
+2. 把 Container App 更新到新镜像
+
+所以现在“GitHub 自动更新 + Azure 自动部署”这两件事都已经具备，而且已经验证成功。
+
+---
+
+### 11.4 一次完整部署时 GitHub Actions 会做什么
+
+当前 workflow 的主要步骤是：
+
+1. Checkout 仓库代码
+2. 解析部署变量
+3. 把网页文件同步进 Docker context
+4. 检查模型文件和容器内必须文件是否齐全
+5. 使用 Azure OIDC 登录
+6. 构建 Docker 镜像
+7. 推送镜像到 ACR
+8. 更新 Azure Container App
+9. 调用 `/health`
+10. 调用 `/decision/weekly`
+11. 调用 `/forecast/weekly`
+
+也就是说，它不是只“发上去”，还会自动做一轮最基本的可用性验证。
+
+---
+
+### 11.5 最近一次成功部署记录
+
+我已经在 PAYG 环境上实际 push 并跑通了一次完整自动部署。
+
+最近一次成功的 workflow run 是：
+
+- Workflow: `Build Push Deploy (Container App)`
+- Commit: `dbea9a7`
+- Run ID: `24674063406`
+- 结果：`success`
+
+这一条成功记录说明：
+
+- GitHub 仓库配置是对的
+- GitHub Actions 能正常触发
+- Azure 登录是通的
+- ACR 推镜像是通的
+- Container App 更新是通的
+- 三个 smoke test 是通的
+
+---
+
+## 12. 当前线上接口和网页是否已经指向 PAYG
+
+这部分我已经实际检查过，可以直接给组员一个结论：
+
+### 12.1 API 接口
+
+下面这些接口现在在线都能正常返回：
+
+- `GET /health`
+- `POST /decision/weekly`
+- `POST /forecast/weekly`
+
+实际检查结果是：
+
+- `/health` 返回 `200`
+- `/decision/weekly` 返回 `200`
+- `/forecast/weekly` 返回 `200`
+
+并且 `/health` 里已经明确显示：
+
+- `telemetry_table = iottelemetry`
+- `aphid_count_table = aphidcounts`
+
+这说明线上 API 现在确实已经在用 PAYG 的表。
+
+---
+
+### 12.2 网页入口
+
+这里有一个很容易误解的点：
+
+线上网页不是通过下面这种静态路径访问的：
+
+- `/local_web_client.html`
+- `/history_records.html`
+- `/decision_dashboard.html`
+- `/forecast_dashboard.html`
+- `/telemetry_dashboard.html`
+
+这些路径在线会返回 `404`。
+
+真正可用的线上网页入口是下面这些 API 风格的 dashboard 路由：
+
+- `/predict/dashboard`
+- `/history/dashboard`
+- `/decision/dashboard`
+- `/forecast/dashboard`
+- `/telemetry/dashboard`
+
+这些路径我已经实际检查过，结果是：
+
+- 全部返回 `200`
+- 页面内部默认 API 地址都已经是 PAYG 的线上地址
+
+所以现在更准确的说法不是“网页没部署”，而是：
+
+```text
+网页已经部署了
+只是线上访问路径是 /xxx/dashboard
+不是 *.html
+```
+
+---
+
+### 12.3 给 teammate 最简单的使用说法
+
+如果你要跟 teammate 说“现在怎么访问线上系统”，最简单可以直接说：
+
+#### API 基础地址
+
+```text
+https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io
+```
+
+#### 常用在线页面
+
+- Predict Dashboard  
+  `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict/dashboard`
+
+- History Dashboard  
+  `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history/dashboard`
+
+- Decision Dashboard  
+  `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/dashboard`
+
+- Forecast Dashboard  
+  `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/forecast/dashboard`
+
+- Telemetry Dashboard  
+  `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/dashboard`
+
+---
+
+## 13. 现在可以怎么理解整个状态
+
+截至目前，最准确的总结是：
+
+1. 系统功能还和之前基本一样
+2. 运行环境已经切到 PAYG
+3. 旧历史数据没有迁移过来
+4. GitHub 自动部署已经恢复并验证成功
+5. Grafana 接入能力已经补上
+6. 线上 API 和 dashboard 现在都已经指向 PAYG 版本
+
+如果后面有人再问“项目现在到底是在旧学生订阅里，还是在新 PAYG 里”，可以直接回答：
+
+```text
+现在正式运行的是 PAYG 环境
+旧学生订阅只保留为历史背景，不再作为当前部署目标
+```
