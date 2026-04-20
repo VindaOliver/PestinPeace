@@ -29,8 +29,8 @@ jobs:
       - name: Resolve deployment variables
         shell: bash
         run: |
-          ACR_NAME_VALUE="${ACR_NAME:-acraphidyolo2498}"
-          RESOURCE_GROUP_VALUE="${RESOURCE_GROUP:-rg-aphid-yolo-se}"
+          ACR_NAME_VALUE="${ACR_NAME:-acraphidyolo9547}"
+          RESOURCE_GROUP_VALUE="${RESOURCE_GROUP:-rg-aphid-yolo-payg}"
           CONTAINER_APP_NAME_VALUE="${CONTAINER_APP_NAME:-aca-aphid-yolo}"
           IMAGE_REPO_VALUE="${IMAGE_REPO:-aphid-yolo26}"
 
@@ -70,7 +70,7 @@ jobs:
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID || '411ad807-be68-4d9c-bbe2-d99cfc655c4d' }}
           tenant-id: ${{ vars.AZURE_TENANT_ID || '1faf88fe-a998-4c5b-93c9-210a11d9a5c2' }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || '12190bf7-b4d8-4dfa-9a63-01580c6ad868' }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || '2685e946-e7eb-4d8a-ac8c-e899199ab4b3' }}
 
       - name: Build and push image to ACR
         shell: bash

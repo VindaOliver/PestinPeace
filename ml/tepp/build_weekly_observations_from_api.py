@@ -1,4 +1,4 @@
-"""Build real weekly retraining dataset by aggregating deployed API data.
+﻿"""Build real weekly retraining dataset by aggregating deployed API data.
 
 Data sources:
 1) /history for weekly aphid count proxy
@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        default="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io",
+        default="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io",
         help="API base URL.",
     )
     parser.add_argument(
@@ -299,3 +299,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

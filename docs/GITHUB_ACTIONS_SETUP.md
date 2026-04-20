@@ -21,8 +21,8 @@ GitHub -> `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`
 
 Optional (workflow has built-in defaults):
 
-- `ACR_NAME` (default: `acraphidyolo2498`)
-- `RESOURCE_GROUP` (default: `rg-aphid-yolo-se`)
+- `ACR_NAME` (default: `acraphidyolo9547`)
+- `RESOURCE_GROUP` (default: `rg-aphid-yolo-payg`)
 - `CONTAINER_APP_NAME` (default: `aca-aphid-yolo`)
 - `IMAGE_REPO` (default: `aphid-yolo26`)
 
@@ -59,12 +59,12 @@ Example commands:
 
 ```powershell
 $AZ = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-$SUB = "12190bf7-b4d8-4dfa-9a63-01580c6ad868"
+$SUB = "2685e946-e7eb-4d8a-ac8c-e899199ab4b3"
 $SP_OBJECT_ID = "<OIDC_SERVICE_PRINCIPAL_OBJECT_ID>"
 
-& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role AcrPush --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-se/providers/Microsoft.ContainerRegistry/registries/acraphidyolo2498"
+& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role AcrPush --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-payg/providers/Microsoft.ContainerRegistry/registries/acraphidyolo9547"
 
-& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role Contributor --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-se"
+& $AZ role assignment create --assignee-object-id $SP_OBJECT_ID --assignee-principal-type ServicePrincipal --role Contributor --scope "/subscriptions/$SUB/resourceGroups/rg-aphid-yolo-payg"
 ```
 
 ## 5. Deployment Trigger
@@ -90,7 +90,7 @@ python scripts/deploy/package_yolo26_container.py --no-build
 
 After workflow succeeds, verify:
 
-- `https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/health`
+- `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/health`
 
 ## 8. Common Failures
 

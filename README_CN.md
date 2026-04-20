@@ -1,4 +1,4 @@
-# PestinPeace（Azure YOLO + IoT）
+﻿# PestinPeace（Azure YOLO + IoT）
 
 本项目提供以下能力：
 
@@ -12,7 +12,7 @@
 
 Base URL：
 
-`https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io`
+`https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`
 
 ## 2. API 说明
 
@@ -23,7 +23,7 @@ Base URL：
 示例：
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/health"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/health"
 ```
 
 ### 2.2 YOLO 图像检测
@@ -40,7 +40,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 示例：
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
   -F "image=@test.jpg"
 ```
 
@@ -60,7 +60,7 @@ curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecont
 示例：
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry" \
   -H "Content-Type: application/json" \
   -d "{\"device_id\":\"pi-001\",\"temperature\":24.6,\"humidity\":58.2,\"light\":301}"
 ```
@@ -74,7 +74,7 @@ curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecont
 示例：
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
 ```
 
 ### 2.5 历史查询
@@ -86,7 +86,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 示例：
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/history?limit=50"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
 ### 2.6 内置页面路由
@@ -114,7 +114,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 示例：
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/decision/weekly" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/weekly" \
   -H "Content-Type: application/json" \
   -d "{\"aphid_count\":18,\"field_area_ha\":2.0,\"exposure_days\":7,\"t_mean\":16.4,\"rh_mean\":72,\"apps_so_far\":0}"
 ```
@@ -202,3 +202,4 @@ python -m http.server 18090
 7. `/decision/weekly` 总是 `scope_class=0`
    - 检查请求中的 `in_tepp_window` 与 `apps_so_far`
    - 合规门控默认开启，会强制执行窗口与次数约束
+

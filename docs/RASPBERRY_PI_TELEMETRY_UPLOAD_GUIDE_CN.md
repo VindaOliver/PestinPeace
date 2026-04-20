@@ -1,4 +1,4 @@
-# 树莓派传感器数据接口上传说明
+﻿# 树莓派传感器数据接口上传说明
 
 本文只说明：你已经拿到温湿度等数据后，如何按项目接口格式上传到后端。
 
@@ -6,12 +6,12 @@
 
 - 上传：`POST /telemetry`
 - 查询验证：`GET /telemetry/latest`
-- Base URL 示例：`https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io`
+- Base URL 示例：`https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`
 
 完整上传地址示例：
 
 ```text
-https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry
+https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry
 ```
 
 ## 2. 上传 JSON 格式
@@ -60,7 +60,7 @@ HTTP 200 示例：
 ### 4.1 curl
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry" \
   -H "Content-Type: application/json" \
   -d "{\"device_id\":\"pi-001\",\"temperature\":24.6,\"humidity\":58.2,\"pressure_hpa\":1012.8,\"light\":301}"
 ```
@@ -71,7 +71,7 @@ curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecont
 from datetime import datetime, timezone
 import requests
 
-base = "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io"
+base = "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io"
 
 payload = {
     "device_id": "pi-001",
@@ -94,7 +94,7 @@ resp.raise_for_status()
 请求：
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
 ```
 
 返回结构示例：
@@ -123,3 +123,4 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 3. 用 `GET /telemetry/latest` 确认数据已入库
 
 只要这 3 步完成，就完成了“拿到传感器数据 -> 通过接口上传”的对接。
+

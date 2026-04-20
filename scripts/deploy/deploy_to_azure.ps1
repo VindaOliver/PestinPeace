@@ -1,4 +1,4 @@
-[#
+<#
 .SYNOPSIS
 Deploy the API container to Azure Container Apps with ACR build/push support.
 
@@ -9,7 +9,7 @@ Workflow:
 3) Ensure Resource Group + ACR + Container App Environment exist
 4) Build/push image (ACR build first, local Docker fallback)
 5) Create/update Container App and print endpoint URLs
-#]
+#>
 [CmdletBinding()]
 param(
     [string]$ResourceGroup = "rg-aphid-yolo",

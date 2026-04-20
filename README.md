@@ -1,4 +1,4 @@
-# PestinPeace (Azure YOLO + IoT)
+﻿# PestinPeace (Azure YOLO + IoT)
 
 This project provides:
 
@@ -12,7 +12,7 @@ This project provides:
 
 Base URL:
 
-`https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io`
+`https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`
 
 ## 2. API Endpoints
 
@@ -23,7 +23,7 @@ Base URL:
 Example:
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/health"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/health"
 ```
 
 ### 2.2 Predict (YOLO Inference)
@@ -40,7 +40,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 Example:
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
   -F "image=@test.jpg"
 ```
 
@@ -60,7 +60,7 @@ curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecont
 Example:
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry" \
   -H "Content-Type: application/json" \
   -d "{\"device_id\":\"pi-001\",\"temperature\":24.6,\"humidity\":58.2,\"light\":301}"
 ```
@@ -74,7 +74,7 @@ curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecont
 Example:
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
 ```
 
 ### 2.5 Prediction History Query
@@ -86,7 +86,7 @@ curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapp
 Example:
 
 ```bash
-curl "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/history?limit=50"
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
 ### 2.6 Built-in Dashboards (Container App routes)
@@ -122,7 +122,7 @@ Response includes:
 Example:
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/decision/weekly" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/weekly" \
   -H "Content-Type: application/json" \
   -d "{\"aphid_count\":18,\"field_area_ha\":2.0,\"exposure_days\":7,\"t_mean\":16.4,\"rh_mean\":72,\"apps_so_far\":0}"
 ```
@@ -164,16 +164,16 @@ Detailed structure note: `docs/PROJECT_STRUCTURE.md`.
 
 ## 4. Azure Resources (Current)
 
-Resource group: `rg-aphid-yolo-se`  
+Resource group: `rg-aphid-yolo-payg`  
 Region: `swedencentral`
 
 Main resources:
 
 - Container App: `aca-aphid-yolo`
 - Container Apps Environment: `aca-env-aphid-yolo`
-- Container Registry (ACR): `acraphidyolo2498`
-- Storage Account: `staphid25021201`
-- Log Analytics Workspace: `workspace-rgaphidyoloseNxBa`
+- Container Registry (ACR): `acraphidyolo9547`
+- Storage Account: `staphidpayg9547`
+- Log Analytics Workspace: `workspace-rgaphidyolopaygK1ST`
 
 ## 5. Storage Behavior
 
@@ -272,7 +272,7 @@ YOLO API endpoint (`POST /predict`) instead of uploading images directly to Azur
 
 ```bash
 cd third_party/PestInPeace_rashberrypi
-export PREDICT_URL="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io/predict"
+export PREDICT_URL="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict"
 make clean && make
 sudo ./iot_app
 ```
@@ -282,3 +282,4 @@ sudo ./iot_app
 - If `PREDICT_URL` is not set, a default URL is used in `src/uploader.cpp`.
 - The `/predict` API already saves image/history in this project, so no extra Blob upload
   code is needed on the Raspberry Pi side.
+

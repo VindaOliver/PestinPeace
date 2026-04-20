@@ -1,4 +1,4 @@
-"""One-shot utility: fetch real weekly data from API, then retrain decision model."""
+﻿"""One-shot utility: fetch real weekly data from API, then retrain decision model."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        default="https://aca-aphid-yolo.jollystone-e01fd827.swedencentral.azurecontainerapps.io",
+        default="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io",
         help="API base URL.",
     )
     parser.add_argument(
@@ -213,3 +213,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
