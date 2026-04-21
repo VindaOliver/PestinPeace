@@ -2,8 +2,6 @@ name: Sync Azure Tables To Log Analytics
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"
 
 permissions:
   id-token: write

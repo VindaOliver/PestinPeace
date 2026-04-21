@@ -1,8 +1,6 @@
 name: Retrain Teppeki Demo Model (No Deploy)
 
 on:
-  schedule:
-    - cron: "0 2 * * 1"
   workflow_dispatch:
     inputs:
       weekly_csv:
