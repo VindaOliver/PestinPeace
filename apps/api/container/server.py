@@ -1458,13 +1458,33 @@ def grafana_aphidcounts(
 
     start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
     end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
-    rows = _query_partition_window_entities(
-        aphid_count_table,
-        device_id,
-        start_ts=start_utc,
-        end_ts=end_utc,
-        limit=limit,
-    )
+    partitions_to_try = [device_id]
+    if device_id != "default":
+        partitions_to_try.append("default")
+
+    selected_partition = device_id
+    rows: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    for partition_key in partitions_to_try:
+        candidate_rows = _query_partition_window_entities(
+            aphid_count_table,
+            partition_key,
+            start_ts=start_utc,
+            end_ts=end_utc,
+            limit=limit,
+        )
+        if candidate_rows:
+            rows = candidate_rows
+            selected_partition = partition_key
+            break
+
+    if rows and selected_partition != device_id:
+        warnings.append(
+            f"No aphid count rows were found under partition '{device_id}', so fallback partition '{selected_partition}' was used."
+        )
+    if not rows:
+        warnings.append(f"No aphid count rows were found for '{device_id}'.")
 
     items = [
         {
@@ -1482,10 +1502,12 @@ def grafana_aphidcounts(
 
     return {
         "device_id": device_id,
+        "partition_used": selected_partition,
         "from": start_utc.isoformat() if start_utc is not None else None,
         "to": end_utc.isoformat() if end_utc is not None else None,
         "count": len(items),
         "items": items,
+        "warnings": warnings,
     }
 
 
