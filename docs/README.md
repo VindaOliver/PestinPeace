@@ -31,6 +31,10 @@
    - 适合负责把业务表同步进 Log Analytics 的人
    - 说明 `iottelemetry` / `aphidcounts` 如何变成 `IoTTelemetry_CL` / `AphidCounts_CL`
 
+7. `docs/GRAFANA_DATA_QUERY_QUICKSTART_CN.md`
+   - 适合只想在 Grafana 里直接查数据的同学
+   - 内容最短，重点是查哪张表、怎么写 KQL
+
 ## Current Docs
 
 ### Deployment And Environment
@@ -40,6 +44,7 @@
 - `docs/GRAFANA_PAYG_QUICKSTART_BILINGUAL.md`
 - `docs/GRAFANA_TEAMMATE_STEPS_1_2_5_6_CN.md`
 - `docs/LOG_ANALYTICS_TABLE_SYNC_CN.md`
+- `docs/GRAFANA_DATA_QUERY_QUICKSTART_CN.md`
 
 ### Business Flow And APIs
 
@@ -75,6 +80,7 @@
 1. `docs/GRAFANA_PAYG_QUICKSTART_BILINGUAL.md`
 2. `docs/GRAFANA_TEAMMATE_STEPS_1_2_5_6_CN.md`
 3. `docs/LOG_ANALYTICS_TABLE_SYNC_CN.md`
+4. `docs/GRAFANA_DATA_QUERY_QUICKSTART_CN.md`
 
 ### 如果你只负责树莓派或传感器上传
 
