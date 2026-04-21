@@ -77,7 +77,24 @@ Example:
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
 ```
 
-### 2.5 Prediction History Query
+### 2.5 Grafana API Query Endpoints
+
+These endpoints are intended for Grafana or other HTTP/JSON consumers that need direct access to Azure Table data through the API layer.
+
+- `GET /grafana/telemetry?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+- `GET /grafana/aphidcounts?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+
+Examples:
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/telemetry?device_id=pi-001&limit=50"
+```
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/aphidcounts?device_id=pi-001&limit=50"
+```
+
+### 2.6 Prediction History Query
 
 - `GET /history?limit=<n>`
 - Reads history JSON blobs from `aphid-history`
@@ -89,13 +106,13 @@ Example:
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
-### 2.6 Built-in Dashboards (Container App routes)
+### 2.7 Built-in Dashboards (Container App routes)
 
 - Predict dashboard: `GET /predict/dashboard`
 - Telemetry dashboard: `GET /telemetry/dashboard`
 - History dashboard: `GET /history/dashboard`
 
-### 2.7 Weekly Decision (Demo Scope Model)
+### 2.8 Weekly Decision (Demo Scope Model)
 
 - `POST /decision/weekly`
 - Content type: `application/json`

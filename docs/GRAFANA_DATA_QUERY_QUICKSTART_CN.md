@@ -1,116 +1,70 @@
 # Grafana 数据查询简版说明
 
-这份文档是写给同学的最短版本。
-目标只有一个：进 Grafana 后，知道该查什么、怎么查。
+给同学的最短版本如下。
 
-## 1. 先记住这件事
+## 1. 现在怎么查
 
-Grafana 现在不要直接查原始 Azure Table：
+不要再查 Log Analytics 自定义表。
 
-- `iottelemetry`
-- `aphidcounts`
+现在直接查 API：
 
-Grafana 应该查已经同步进 Log Analytics 的两张表：
+- `/grafana/telemetry`
+- `/grafana/aphidcounts`
 
-- `IoTTelemetry_CL`
-- `AphidCounts_CL`
+基础地址：
 
-## 2. 在 Grafana 里怎么选
+`https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`
 
-1. 打开你们的 Grafana
-2. 进入 `Azure Monitor` 数据源
-3. Query type 选 `Logs`
-4. Workspace 选 `workspace-rgaphidyolopaygK1ST`
+## 2. 最常用的调用
 
-## 3. 最常用的查询
+### 看最近的传感器数据
 
-### 3.1 看最近的传感器数据
-
-```kusto
-IoTTelemetry_CL
-| order by TimeGenerated desc
-| take 20
+```text
+/grafana/telemetry?device_id=pi-001&limit=50
 ```
 
-### 3.2 看最近的虫子识别数量
+### 看最近的虫子数量
 
-```kusto
-AphidCounts_CL
-| order by TimeGenerated desc
-| take 20
+```text
+/grafana/aphidcounts?device_id=pi-001&limit=50
 ```
 
-### 3.3 按设备查看传感器数据
+### 查时间范围
 
-```kusto
-IoTTelemetry_CL
-| where DeviceId == "pi-001"
-| order by TimeGenerated desc
-| take 50
+```text
+/grafana/telemetry?device_id=pi-001&from=2026-04-20T00:00:00Z&to=2026-04-21T00:00:00Z&limit=500
 ```
 
-### 3.4 按设备查看虫子数量
-
-```kusto
-AphidCounts_CL
-| where DeviceId == "pi-001"
-| order by TimeGenerated desc
-| take 50
+```text
+/grafana/aphidcounts?device_id=pi-001&from=2026-04-20T00:00:00Z&to=2026-04-21T00:00:00Z&limit=500
 ```
 
-## 4. 如果要画图
+## 3. 重点字段
 
-### 4.1 温度小时趋势
+### `/grafana/telemetry`
 
-```kusto
-IoTTelemetry_CL
-| summarize avg_temp = avg(Temperature) by bin(TimeGenerated, 1h), DeviceId
-| order by TimeGenerated asc
-```
+- `ts`
+- `temperature`
+- `humidity`
+- `pressure_hpa`
+- `light`
 
-### 4.2 每天虫子总数趋势
+### `/grafana/aphidcounts`
 
-```kusto
-AphidCounts_CL
-| summarize aphid_total = sum(Count) by bin(TimeGenerated, 1d), DeviceId
-| order by TimeGenerated asc
-```
+- `ts`
+- `count`
+- `device_id`
+- `source_device_id`
+- `filename`
 
-## 5. 常见字段是什么意思
+## 4. 查不到数据先看什么
 
-### `IoTTelemetry_CL`
+1. 基础地址对不对
+2. `device_id` 对不对
+3. 时间范围是不是太短
+4. 设备是不是已经把数据写进 Azure Table
+5. 你是不是还在查旧的 Log Analytics 表
 
-- `DeviceId`: 设备编号
-- `Temperature`: 温度
-- `Humidity`: 湿度
-- `PressureHpa`: 气压
-- `Light`: 光照
-- `TimeGenerated`: 进入 Log Analytics 的时间
-- `Ts`: 原始记录时间
+## 5. 一句话发给同学
 
-### `AphidCounts_CL`
-
-- `DeviceId`: 当前记录对应的设备编号
-- `SourceDeviceId`: 原始请求里的设备编号
-- `Count`: 识别出来的虫子数量
-- `Filename`: 图片文件名
-- `RequestId`: 这次识别请求的 ID
-- `TimeGenerated`: 进入 Log Analytics 的时间
-- `Ts`: 原始记录时间
-
-## 6. 查不到数据时先看什么
-
-按这个顺序排查：
-
-1. 数据源是不是 `Azure Monitor`
-2. Query type 是不是 `Logs`
-3. Workspace 是不是 `workspace-rgaphidyolopaygK1ST`
-4. 时间范围是不是太短
-5. 设备号是不是写错了
-6. 你是不是误查成了 `iottelemetry` / `aphidcounts`
-
-## 7. 一句话发给同学
-
-可以直接转发这段：
-
-> Grafana 里不要直接查 `iottelemetry` 和 `aphidcounts`，要查已经同步进 Log Analytics 的 `IoTTelemetry_CL` 和 `AphidCounts_CL`。数据源选 `Azure Monitor`，Query type 选 `Logs`，Workspace 选 `workspace-rgaphidyolopaygK1ST`。
+> Grafana 现在直接通过 API 查数据，不用 Log Analytics。基础地址用 `https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io`，传感器数据查 `/grafana/telemetry`，虫子数量查 `/grafana/aphidcounts`。

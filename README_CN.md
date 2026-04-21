@@ -77,7 +77,24 @@ curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azureco
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/telemetry/latest?device_id=pi-001&limit=10"
 ```
 
-### 2.5 历史查询
+### 2.5 Grafana API 查询接口
+
+下面这两个接口适合 Grafana 或其他 HTTP / JSON 调用方直接读表数据：
+
+- `GET /grafana/telemetry?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+- `GET /grafana/aphidcounts?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+
+示例：
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/telemetry?device_id=pi-001&limit=50"
+```
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/aphidcounts?device_id=pi-001&limit=50"
+```
+
+### 2.6 历史查询
 
 - `GET /history?limit=<n>`
 - 从 Blob 容器 `aphid-history` 读取历史 JSON
@@ -89,7 +106,7 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
-### 2.6 内置页面路由
+### 2.7 内置页面路由
 
 - 检测页：`GET /predict/dashboard`
 - 监控页：`GET /telemetry/dashboard`

@@ -6,7 +6,8 @@ This module wires together:
 3) History retrieval endpoint (`/history`)
 4) Weekly spray-scope decision endpoint (`/decision/weekly`)
 5) Weekly aphid trend forecast endpoint (`/forecast/weekly`)
-6) Built-in dashboard static page routes
+6) Grafana-friendly raw table query endpoints (`/grafana/telemetry`, `/grafana/aphidcounts`)
+7) Built-in dashboard static page routes
 """
 
 from __future__ import annotations
@@ -614,6 +615,38 @@ def _query_recent_partition_entities(
         row["_parsed_ts"] = parsed_ts
         rows.append(row)
         if len(rows) >= max_rows:
+            break
+
+    return rows
+
+
+def _query_partition_window_entities(
+    table_client: Any,
+    partition_key: str,
+    *,
+    start_ts: datetime | None = None,
+    end_ts: datetime | None = None,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Read rows for one partition and optionally filter them into a time window."""
+
+    rows: list[dict[str, Any]] = []
+    query_filter = "PartitionKey eq @partition_key"
+    parameters = {"partition_key": partition_key}
+
+    for entity in table_client.query_entities(query_filter=query_filter, parameters=parameters):
+        parsed_ts = _parse_entity_ts(entity.get("ts"))
+        if parsed_ts is None:
+            continue
+        if end_ts is not None and parsed_ts > end_ts:
+            continue
+        if start_ts is not None and parsed_ts < start_ts:
+            break
+
+        row = dict(entity)
+        row["_parsed_ts"] = parsed_ts
+        rows.append(row)
+        if len(rows) >= limit:
             break
 
     return rows
@@ -1363,6 +1396,97 @@ def telemetry_latest(
             break
 
     return {"device_id": device_id, "count": len(items), "items": items}
+
+
+@app.get("/grafana/telemetry")
+def grafana_telemetry(
+    device_id: str = Query(..., min_length=1),
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(500, ge=1, le=5000),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    """Return raw telemetry rows for Grafana or other HTTP/JSON consumers."""
+
+    _check_iot_api_key(x_api_key)
+
+    if telemetry_table is None:
+        raise HTTPException(status_code=503, detail=f"Telemetry storage unavailable: {telemetry_init_error}")
+
+    start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
+    end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
+    rows = _query_partition_window_entities(
+        telemetry_table,
+        device_id,
+        start_ts=start_utc,
+        end_ts=end_utc,
+        limit=limit,
+    )
+
+    items = [
+        {
+            "device_id": row.get("device_id"),
+            "ts": row.get("ts"),
+            "temperature": row.get("temperature"),
+            "humidity": row.get("humidity"),
+            "pressure_hpa": row.get("pressure_hpa"),
+            "light": row.get("light"),
+        }
+        for row in rows
+    ]
+
+    return {
+        "device_id": device_id,
+        "from": start_utc.isoformat() if start_utc is not None else None,
+        "to": end_utc.isoformat() if end_utc is not None else None,
+        "count": len(items),
+        "items": items,
+    }
+
+
+@app.get("/grafana/aphidcounts")
+def grafana_aphidcounts(
+    device_id: str = Query(..., min_length=1),
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(500, ge=1, le=5000),
+) -> dict[str, Any]:
+    """Return raw aphid count rows for Grafana or other HTTP/JSON consumers."""
+
+    if aphid_count_table is None:
+        raise HTTPException(status_code=503, detail=f"Aphid count storage unavailable: {aphid_count_table_error}")
+
+    start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
+    end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
+    rows = _query_partition_window_entities(
+        aphid_count_table,
+        device_id,
+        start_ts=start_utc,
+        end_ts=end_utc,
+        limit=limit,
+    )
+
+    items = [
+        {
+            "device_id": row.get("device_id"),
+            "source_device_id": row.get("source_device_id"),
+            "request_id": row.get("request_id"),
+            "ts": row.get("ts"),
+            "filename": row.get("filename"),
+            "count": row.get("count"),
+            "image_blob_name": row.get("image_blob_name"),
+            "history_blob_name": row.get("history_blob_name"),
+        }
+        for row in rows
+    ]
+
+    return {
+        "device_id": device_id,
+        "from": start_utc.isoformat() if start_utc is not None else None,
+        "to": end_utc.isoformat() if end_utc is not None else None,
+        "count": len(items),
+        "items": items,
+    }
 
 
 @app.post("/decision/weekly")
