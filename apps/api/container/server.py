@@ -78,17 +78,24 @@ REQUEST_RETRY_BACKOFF_SEC = float(os.getenv("REQUEST_RETRY_BACKOFF_SEC", "0.75")
 AZURE_RETRY_ATTEMPTS = int(os.getenv("AZURE_RETRY_ATTEMPTS", "3"))
 AZURE_RETRY_BACKOFF_SEC = float(os.getenv("AZURE_RETRY_BACKOFF_SEC", "0.4"))
 
-# Fail fast if the primary YOLO model is not available.
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
-
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("aphid_api")
 
-model = YOLO(MODEL_PATH)
+model = None
+model_load_error = ""
+if not os.path.exists(MODEL_PATH):
+    model_load_error = f"Model not found: {MODEL_PATH}"
+    logger.error("model_load_failed reason=%s", model_load_error)
+else:
+    try:
+        model = YOLO(MODEL_PATH)
+    except Exception as exc:
+        model_load_error = str(exc)
+        logger.exception("model_load_failed reason=%s", exc)
+
 app = FastAPI(title="Aphid YOLO26 Inference API", version="1.7.0")
 app.add_middleware(
     CORSMiddleware,
@@ -575,7 +582,7 @@ def _retry_call(action_name: str, attempts: int, base_delay_sec: float, func) ->
             last_exc = exc
             if attempt >= max(attempts, 1):
                 break
-            sleep_for = base_delay_sec * attempt
+            sleep_for = base_delay_sec * (2 ** (attempt - 1))
             logger.warning(
                 "retrying action=%s attempt=%s/%s sleep_sec=%.2f reason=%s",
                 action_name,
@@ -1381,13 +1388,15 @@ def ready() -> dict[str, Any]:
     """Readiness probe with explicit dependency checks and soft warnings."""
 
     checks = {
-        "model_loaded": os.path.exists(MODEL_PATH),
+        "model_loaded": model is not None,
         "blob_ready": blob_service is not None and not blob_image_error and not blob_history_error,
         "telemetry_table_ready": telemetry_table is not None,
         "aphid_count_table_ready": aphid_count_table is not None,
         "decision_history_table_ready": decision_history_table is not None,
     }
     warnings: list[str] = []
+    if model_load_error:
+        warnings.append(f"Primary YOLO model failed to load: {model_load_error}")
     if not IOT_API_KEY:
         warnings.append("IOT_API_KEY is not configured; write endpoints are not protected by an API key.")
     ready_state = all(checks.values())
@@ -1409,6 +1418,9 @@ async def predict(
     device_id: str = Query(..., min_length=1, max_length=64),
 ) -> dict[str, Any]:
     """Run YOLO inference on uploaded image and optionally persist blobs/history."""
+
+    if model is None:
+        raise HTTPException(status_code=503, detail=f"YOLO model unavailable: {model_load_error or 'unknown load error'}")
 
     if not image.filename:
         raise HTTPException(status_code=400, detail="Missing image filename.")
@@ -1590,7 +1602,8 @@ def get_history(request: Request, limit: int = Query(50, ge=1, le=500)) -> dict[
         try:
             content = blob_client.download_blob().readall()
             payload = json.loads(content)
-        except Exception:
+        except Exception as exc:
+            logger.warning("history_blob_skip blob_name=%s reason=%s", b.name, exc)
             continue
         if not isinstance(payload, dict):
             continue
