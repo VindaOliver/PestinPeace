@@ -725,7 +725,7 @@ def _build_daily_aphid_trend(rows: list[dict[str, Any]]) -> dict[str, Any]:
         parsed_ts = row.get("_parsed_ts")
         if not isinstance(parsed_ts, datetime):
             continue
-        count_value = _parse_float_or_none(row.get("count"))
+        count_value = _coerce_float(row.get("count"))
         if count_value is None:
             continue
         bucket_key = parsed_ts.date().isoformat()
