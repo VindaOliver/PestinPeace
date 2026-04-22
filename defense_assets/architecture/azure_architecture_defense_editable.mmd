@@ -1,0 +1,64 @@
+flowchart LR
+    subgraph Clients["Users & Devices"]
+        Web["Web User
+Dashboards and API calls"]
+        Pi["Raspberry Pi
+Sensor node / telemetry upload"]
+        Grafana["Grafana
+HTTP/JSON datasource"]
+    end
+
+    subgraph Azure["Azure PAYG | Sweden Central"]
+        subgraph App["Application Layer"]
+            ACA["Azure Container App
+aca-aphid-yolo
+FastAPI + YOLO + Forecast + Decision"]
+        end
+
+        subgraph Data["Data Layer"]
+            Telemetry["Azure Table
+iottelemetry"]
+            Aphids["Azure Table
+aphidcounts"]
+            Images["Blob Container
+aphid-images"]
+            History["Blob Container
+aphid-history"]
+        end
+
+        subgraph Platform["Platform / Runtime"]
+            ACR["Container Registry
+acraphidyolo9547"]
+            Env["Apps Environment
+aca-env-aphid-yolo"]
+            Logs["Log Analytics
+platform logs only"]
+        end
+    end
+
+    Weather["Weather API
+input for /forecast/auto"]
+
+    subgraph CICD["CI/CD"]
+        Repo["GitHub Repository
+source code + models"]
+        Actions["GitHub Actions
+Build -> Push -> Deploy"]
+    end
+
+    Web -->|"dashboards / predict"| ACA
+    Pi -->|"telemetry upload"| ACA
+    Grafana -->|"Grafana API query"| ACA
+
+    ACA --> Telemetry
+    ACA --> Aphids
+    ACA --> Images
+    ACA --> History
+    ACA -->|"forecast input"| Weather
+
+    Env --> ACA
+    ACA -.-> Logs
+
+    Repo -->|"push to main"| Actions
+    Actions -->|"build / deploy pipeline"| ACR
+    ACR --> ACA

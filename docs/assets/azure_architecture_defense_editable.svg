@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1350" viewBox="0 0 2200 1350">
+<style>
+.title { font: 700 42px Segoe UI, Arial, sans-serif; fill: #1f2937; }
+.sub { font: 400 20px Segoe UI, Arial, sans-serif; fill: #64748b; }
+.panel { font: 700 24px Segoe UI, Arial, sans-serif; fill: #1f2937; }
+.node { font: 700 22px Segoe UI, Arial, sans-serif; fill: #1f2937; }
+.meta { font: 400 18px Segoe UI, Arial, sans-serif; fill: #64748b; }
+.tag { font: 400 16px Segoe UI, Arial, sans-serif; fill: #64748b; }
+</style>
+<defs>
+  <marker id="arrowDark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+  </marker>
+  <marker id="arrowPurple" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9333ea"/>
+  </marker>
+  <marker id="arrowPink" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ec4899"/>
+  </marker>
+</defs>
+
+<text x="1100" y="52" text-anchor="middle" class="title">PestinPeace Azure Architecture</text>
+<text x="1100" y="82" text-anchor="middle" class="sub">Current PAYG deployment for student project defense</text>
+
+<rect x="70" y="160" width="400" height="920" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+<text x="90" y="196" class="panel">Users &amp; Devices</text>
+
+<rect x="550" y="140" width="1130" height="985" rx="28" fill="#ffffff" stroke="#3b82f6" stroke-width="3"/>
+<text x="570" y="176" class="panel">Azure PAYG | Sweden Central</text>
+
+<rect x="70" y="1160" width="950" height="180" rx="28" fill="#ffffff" stroke="#f472b6" stroke-width="3"/>
+<text x="90" y="1196" class="panel">CI/CD</text>
+
+<rect x="1760" y="390" width="370" height="190" rx="28" fill="#ffffff" stroke="#facc15" stroke-width="3"/>
+<text x="1780" y="426" class="panel">External Input</text>
+
+<rect x="1760" y="660" width="370" height="210" rx="28" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+<text x="1780" y="696" class="panel">Legend</text>
+
+<rect x="610" y="220" width="1010" height="250" rx="24" fill="#f8fafc" stroke="#bfdbfe" stroke-width="3"/>
+<text x="630" y="256" class="panel">Application Layer</text>
+<rect x="610" y="510" width="1010" height="310" rx="24" fill="#f8fafc" stroke="#bbf7d0" stroke-width="3"/>
+<text x="630" y="546" class="panel">Data Layer</text>
+<rect x="610" y="860" width="1010" height="220" rx="24" fill="#f8fafc" stroke="#ddd6fe" stroke-width="3"/>
+<text x="630" y="896" class="panel">Platform / Runtime</text>
+
+<rect x="130" y="275" width="270" height="120" rx="20" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+<text x="265" y="333" text-anchor="middle" class="node">Web User</text>
+<text x="265" y="356" text-anchor="middle" class="meta">Dashboards and API calls</text>
+
+<rect x="130" y="505" width="270" height="120" rx="20" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+<text x="265" y="563" text-anchor="middle" class="node">Raspberry Pi</text>
+<text x="265" y="586" text-anchor="middle" class="meta">Sensor node / telemetry upload</text>
+
+<rect x="130" y="735" width="270" height="120" rx="20" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+<text x="265" y="793" text-anchor="middle" class="node">Grafana</text>
+<text x="265" y="816" text-anchor="middle" class="meta">HTTP/JSON datasource</text>
+
+<rect x="875" y="290" width="470" height="135" rx="20" fill="#dff1ff" stroke="#0e7490" stroke-width="3"/>
+<text x="1110" y="348" text-anchor="middle" class="node">Azure Container App</text>
+<text x="1110" y="371" text-anchor="middle" class="meta">aca-aphid-yolo</text>
+<text x="1110" y="394" text-anchor="middle" class="meta">FastAPI + YOLO + Forecast + Decision</text>
+
+<rect x="700" y="610" width="280" height="110" rx="20" fill="#ecfdf5" stroke="#22c55e" stroke-width="3"/>
+<text x="840" y="668" text-anchor="middle" class="node">Azure Table</text>
+<text x="840" y="691" text-anchor="middle" class="meta">iottelemetry</text>
+
+<rect x="1240" y="610" width="280" height="110" rx="20" fill="#ecfdf5" stroke="#22c55e" stroke-width="3"/>
+<text x="1380" y="668" text-anchor="middle" class="node">Azure Table</text>
+<text x="1380" y="691" text-anchor="middle" class="meta">aphidcounts</text>
+
+<rect x="700" y="745" width="280" height="65" rx="20" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+<text x="840" y="785" text-anchor="middle" class="node">Blob Container</text>
+<text x="840" y="805" text-anchor="middle" class="meta">aphid-images</text>
+
+<rect x="1240" y="745" width="280" height="65" rx="20" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+<text x="1380" y="785" text-anchor="middle" class="node">Blob Container</text>
+<text x="1380" y="805" text-anchor="middle" class="meta">aphid-history</text>
+
+<rect x="690" y="945" width="280" height="90" rx="20" fill="#fdf2f8" stroke="#ec4899" stroke-width="3"/>
+<text x="830" y="994" text-anchor="middle" class="node">Container Registry</text>
+<text x="830" y="1017" text-anchor="middle" class="meta">acraphidyolo9547</text>
+
+<rect x="980" y="945" width="280" height="90" rx="20" fill="#f3e8ff" stroke="#9333ea" stroke-width="3"/>
+<text x="1120" y="994" text-anchor="middle" class="node">Apps Environment</text>
+<text x="1120" y="1017" text-anchor="middle" class="meta">aca-env-aphid-yolo</text>
+
+<rect x="1330" y="945" width="260" height="90" rx="20" fill="#f3e8ff" stroke="#9333ea" stroke-width="3"/>
+<text x="1460" y="994" text-anchor="middle" class="node">Log Analytics</text>
+<text x="1460" y="1017" text-anchor="middle" class="meta">platform logs only</text>
+
+<rect x="130" y="1215" width="260" height="80" rx="20" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+<text x="260" y="1261" text-anchor="middle" class="node">GitHub Repository</text>
+<text x="260" y="1284" text-anchor="middle" class="meta">source code + models</text>
+
+<rect x="470" y="1215" width="380" height="80" rx="20" fill="#fdf2f8" stroke="#ec4899" stroke-width="3"/>
+<text x="660" y="1261" text-anchor="middle" class="node">GitHub Actions</text>
+<text x="660" y="1284" text-anchor="middle" class="meta">Build -&gt; Push -&gt; Deploy</text>
+
+<rect x="1820" y="440" width="250" height="90" rx="20" fill="#fefce8" stroke="#eab308" stroke-width="3"/>
+<text x="1945" y="489" text-anchor="middle" class="node">Weather API</text>
+<text x="1945" y="512" text-anchor="middle" class="meta">input for /forecast/auto</text>
+
+<polyline points="400,335 560,335 560,325 875,325" fill="none" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<polyline points="400,565 620,565 620,360 875,360" fill="none" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<polyline points="400,795 650,795 650,395 875,395" fill="none" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+
+<line x1="970" y1="425" x2="840" y2="610" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<line x1="1025" y1="425" x2="840" y2="745" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<line x1="1195" y1="425" x2="1380" y2="610" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<line x1="1250" y1="425" x2="1380" y2="745" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+<line x1="1345" y1="350" x2="1820" y2="485" stroke="#475569" stroke-width="5" marker-end="url(#arrowDark)"/>
+
+<line x1="1120" y1="945" x2="1120" y2="425" stroke="#9333ea" stroke-width="5" marker-end="url(#arrowPurple)"/>
+<polyline points="1290,425 1475,425 1475,945" fill="none" stroke="#9333ea" stroke-width="4" stroke-dasharray="12 9" marker-end="url(#arrowPurple)"/>
+
+<line x1="390" y1="1255" x2="470" y2="1255" stroke="#ec4899" stroke-width="5" marker-end="url(#arrowPink)"/>
+<polyline points="850,1255 910,1255 910,990 690,990" fill="none" stroke="#ec4899" stroke-width="5" marker-end="url(#arrowPink)"/>
+<polyline points="970,990 970,895 1620,895 1620,445 1345,445" fill="none" stroke="#ec4899" stroke-width="5" marker-end="url(#arrowPink)"/>
+
+<rect x="565" y="295" width="170" height="28" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="576" y="314" class="tag">dashboards / predict</text>
+<rect x="630" y="533" width="150" height="28" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="641" y="552" class="tag">telemetry upload</text>
+<rect x="660" y="763" width="145" height="28" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="671" y="782" class="tag">Grafana API query</text>
+<rect x="1560" y="345" width="120" height="28" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/><text x="1571" y="364" class="tag">forecast input</text>
+<rect x="386" y="1210" width="112" height="28" rx="12" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="2"/><text x="397" y="1229" class="tag" fill="#ec4899">push to main</text>
+<rect x="930" y="1210" width="165" height="28" rx="12" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="2"/><text x="941" y="1229" class="tag" fill="#ec4899">build / deploy pipeline</text>
+
+<rect x="1800" y="720" width="24" height="24" rx="6" fill="#22c55e"/><text x="1840" y="738" class="meta">Business data</text>
+<rect x="1800" y="760" width="24" height="24" rx="6" fill="#f97316"/><text x="1840" y="778" class="meta">Images / history</text>
+<rect x="1800" y="800" width="24" height="24" rx="6" fill="#9333ea"/><text x="1840" y="818" class="meta">Runtime / logs</text>
+<rect x="1800" y="840" width="24" height="24" rx="6" fill="#ec4899"/><text x="1840" y="858" class="meta">CI/CD</text>
+
+<text x="1100" y="1338" text-anchor="middle" class="sub">Grafana reads business data through API endpoints instead of querying Azure Table directly.</text>
+</svg>

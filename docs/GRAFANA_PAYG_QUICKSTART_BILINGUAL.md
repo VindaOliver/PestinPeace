@@ -139,6 +139,10 @@ Then point it to our API base URL and query:
 - `/grafana/telemetry`
 - `/grafana/aphidcounts`
 
+If a teammate needs the exact Grafana-side setup steps, read:
+
+`docs/GRAFANA_API_DATASOURCE_QUICKSTART_CN.md`
+
 在 Grafana 里，用你们已有的 HTTP / JSON 数据源插件即可。
 把基础地址指向我们的 API，然后分别请求：
 

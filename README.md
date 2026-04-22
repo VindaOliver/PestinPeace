@@ -5,8 +5,15 @@ This project provides:
 1. YOLO image inference API for aphid detection (`/predict`)
 2. IoT telemetry ingest/query APIs (`/telemetry`, `/telemetry/latest`)
 3. Prediction history storage in Blob (`aphid-history`) with query API (`/history`)
-4. Web pages for Predict / Monitor / History
-5. Weekly demo spray-scope decision API with compliance gate (`/decision/weekly`)
+4. Web pages for Predict / Monitor / History / Decision / Forecast
+5. Weekly forecast and decision APIs (`/forecast/weekly`, `/decision/weekly`)
+6. Grafana-facing API endpoints for business data (`/grafana/telemetry`, `/grafana/aphidcounts`, `/grafana/decisionhistory`)
+
+Start here if you are onboarding or preparing a demo:
+
+- Docs index: `docs/README.md`
+- Current status and testing summary: `docs/CURRENT_SYSTEM_STATUS_AND_TESTING_CN.md`
+- Defense assets: `defense_assets/README_CN.md`
 
 ## 1. Live Service
 
@@ -19,6 +26,7 @@ Base URL:
 ### 2.1 Health
 
 - `GET /health`
+- `GET /ready`
 
 Example:
 
@@ -26,23 +34,42 @@ Example:
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/health"
 ```
 
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/ready"
+```
+
 ### 2.2 Predict (YOLO Inference)
 
 - `POST /predict`
 - Content type: `multipart/form-data`
 - Required field: `image`
+- Required query param:
+  - `device_id`
 - Optional query params:
   - `conf` (default `0.25`)
   - `iou` (default `0.45`)
   - `imgsz` (default `640`)
   - `max_det` (default `1000`)
+- Current validation bounds:
+  - `conf`: `0.0` to `1.0`
+  - `iou`: `0.0` to `1.0`
+  - `imgsz`: `32` to `1280`
+  - `max_det`: `1` to `5000`
 
 Example:
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?device_id=demo-trap-001&conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
   -F "image=@test.jpg"
 ```
+
+Important response fields now include:
+
+- `count`
+- `detections`
+- `count_mean`
+- `images_in_round`
+- `aggregation_mode`
 
 ### 2.3 IoT Telemetry Upload
 
@@ -83,6 +110,7 @@ These endpoints are intended for Grafana or other HTTP/JSON consumers that need 
 
 - `GET /grafana/telemetry?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
 - `GET /grafana/aphidcounts?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+- `GET /grafana/decisionhistory?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
 
 Examples:
 
@@ -94,7 +122,30 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/aphidcounts?device_id=pi-001&limit=50"
 ```
 
-### 2.6 Prediction History Query
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/decisionhistory?device_id=pi-001&limit=20"
+```
+
+### 2.6 Decision History and Trend
+
+- `GET /decision/history?device_id=<id>&limit=<n>`
+- `GET /predict/trend?device_id=<id>&days=<n>`
+- `GET /decision/history` returns decision records and summary flags such as:
+  - `last_uploaded_record_is_spray`
+  - `last_uploaded_record_should_spray`
+- `GET /predict/trend` returns daily pest-count trend data for plotting or quick interpretation
+
+Examples:
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/history?device_id=demo-trap-001&limit=10"
+```
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict/trend?device_id=demo-trap-001&days=31"
+```
+
+### 2.7 Prediction History Query
 
 - `GET /history?limit=<n>`
 - Reads history JSON blobs from `aphid-history`
@@ -106,13 +157,15 @@ Example:
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
-### 2.7 Built-in Dashboards (Container App routes)
+### 2.8 Built-in Dashboards (Container App routes)
 
 - Predict dashboard: `GET /predict/dashboard`
 - Telemetry dashboard: `GET /telemetry/dashboard`
 - History dashboard: `GET /history/dashboard`
+- Decision dashboard: `GET /decision/dashboard`
+- Forecast dashboard: `GET /forecast/dashboard`
 
-### 2.8 Weekly Decision (Demo Scope Model)
+### 2.9 Weekly Decision (Demo Scope Model)
 
 - `POST /decision/weekly`
 - Content type: `application/json`
@@ -179,6 +232,7 @@ Top navigation is linked across all three pages.
 
 Detailed structure note: `docs/PROJECT_STRUCTURE.md`.
 Documentation index: `docs/README.md`.
+Current system summary: `docs/CURRENT_SYSTEM_STATUS_AND_TESTING_CN.md`.
 
 ## 4. Azure Resources (Current)
 
@@ -192,6 +246,11 @@ Main resources:
 - Container Registry (ACR): `acraphidyolo9547`
 - Storage Account: `staphidpayg9547`
 - Log Analytics Workspace: `workspace-rgaphidyolopaygK1ST`
+
+Note:
+
+- Azure still uses Log Analytics for platform logs.
+- Grafana business-data queries now go through the API, not Log Analytics custom tables.
 
 ## 5. Storage Behavior
 

@@ -1,0 +1,9 @@
+ts_utc,device_id,decision_id,round_id,scope_class,scope_name,should_spray,spray_applied,product_kg,spray_l,source,reason,notes
+2026-03-24T10:13:57Z,demo-trap-001,decision_001,round_1774347237391,0,no_spray,0,0,0.0000,0.00,manual_review,"Counts remained low, so monitoring continued without spraying.",Early monitoring stage.
+2026-03-28T10:14:49Z,demo-trap-001,decision_002,round_1774692889265,0,no_spray,0,0,0.0000,0.00,manual_review,Aphid pressure was still limited and no action was taken.,No visible spread beyond isolated detections.
+2026-04-01T10:15:11Z,demo-trap-001,decision_003,round_1775038511213,0,no_spray,0,0,0.0000,0.00,manual_review,Population was rising slowly but remained below treatment threshold.,Trend observed but still manageable.
+2026-04-05T10:16:16Z,demo-trap-001,decision_004,round_1775384176795,1,boundary_band,1,0,0.0420,105.00,weekly_scope_decision,Boundary-band treatment was recommended as counts started increasing.,Recommendation recorded for operator review.
+2026-04-09T10:13:07Z,demo-trap-001,decision_005,round_1775729587492,1,boundary_band,1,1,0.0420,105.00,weekly_scope_decision,Boundary-band spray was applied after the recommendation was reviewed.,Operator confirmed treatment.
+2026-04-13T10:11:15Z,demo-trap-001,decision_006,round_1776077475120,2,full_field,1,1,0.1400,500.00,weekly_scope_decision,Full-field spray was applied during the highest pressure period.,Peak pressure response.
+2026-04-17T10:12:36Z,demo-trap-001,decision_007,round_1776419556850,1,boundary_band,1,1,0.0420,105.00,weekly_scope_decision,A follow-up boundary-band spray was recorded after continued detections.,Follow-up after high weekly count.
+2026-04-21T10:12:24Z,demo-trap-001,decision_008,round_1776766344419,1,boundary_band,1,1,0.0420,105.00,weekly_scope_decision,Latest uploaded decision confirms a spray action was taken.,Current latest action for demo history.

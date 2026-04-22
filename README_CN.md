@@ -5,8 +5,15 @@
 1. 蚜虫图像检测 API（`/predict`）
 2. IoT 遥测写入与查询 API（`/telemetry`, `/telemetry/latest`）
 3. 检测历史写入 Blob（`aphid-history`）并支持查询（`/history`）
-4. 前端页面（检测 / 监控 / 历史）
-5. 周级喷施范围 demo 决策 API（`/decision/weekly`）
+4. 前端页面（检测 / 监控 / 历史 / 决策 / 预测）
+5. 周级预测与决策接口（`/forecast/weekly`, `/decision/weekly`）
+6. 给 Grafana 用的业务数据接口（`/grafana/telemetry`, `/grafana/aphidcounts`, `/grafana/decisionhistory`）
+
+如果你现在要接手、答辩或快速确认当前状态，先看：
+
+- 文档导航：`docs/README.md`
+- 当前系统状态：`docs/CURRENT_SYSTEM_STATUS_AND_TESTING_CN.md`
+- 答辩资料包：`defense_assets/README_CN.md`
 
 ## 1. 在线服务
 
@@ -19,6 +26,7 @@ Base URL：
 ### 2.1 健康检查
 
 - `GET /health`
+- `GET /ready`
 
 示例：
 
@@ -26,23 +34,42 @@ Base URL：
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/health"
 ```
 
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/ready"
+```
+
 ### 2.2 YOLO 图像检测
 
 - `POST /predict`
 - Content-Type: `multipart/form-data`
 - 必填字段：`image`
+- 必填 query 参数：
+  - `device_id`
 - 可选 query 参数：
   - `conf`（默认 `0.25`）
   - `iou`（默认 `0.45`）
   - `imgsz`（默认 `640`）
   - `max_det`（默认 `1000`）
+- 当前边界校验：
+  - `conf`：`0.0` 到 `1.0`
+  - `iou`：`0.0` 到 `1.0`
+  - `imgsz`：`32` 到 `1280`
+  - `max_det`：`1` 到 `5000`
 
 示例：
 
 ```bash
-curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
+curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict?device_id=demo-trap-001&conf=0.25&iou=0.45&imgsz=640&max_det=1000" \
   -F "image=@test.jpg"
 ```
+
+当前常用返回字段包括：
+
+- `count`
+- `detections`
+- `count_mean`
+- `images_in_round`
+- `aggregation_mode`
 
 ### 2.3 遥测上传
 
@@ -83,6 +110,7 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 
 - `GET /grafana/telemetry?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
 - `GET /grafana/aphidcounts?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
+- `GET /grafana/decisionhistory?device_id=<id>&from=<iso>&to=<iso>&limit=<n>`
 
 示例：
 
@@ -94,7 +122,30 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/aphidcounts?device_id=pi-001&limit=50"
 ```
 
-### 2.6 历史查询
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/grafana/decisionhistory?device_id=pi-001&limit=20"
+```
+
+### 2.6 决策历史与趋势
+
+- `GET /decision/history?device_id=<id>&limit=<n>`
+- `GET /predict/trend?device_id=<id>&days=<n>`
+- `GET /decision/history` 会返回决策记录，以及：
+  - `last_uploaded_record_is_spray`
+  - `last_uploaded_record_should_spray`
+- `GET /predict/trend` 会返回虫量趋势数据，适合画图或做快速展示
+
+示例：
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/history?device_id=demo-trap-001&limit=10"
+```
+
+```bash
+curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict/trend?device_id=demo-trap-001&days=31"
+```
+
+### 2.7 历史查询
 
 - `GET /history?limit=<n>`
 - 从 Blob 容器 `aphid-history` 读取历史 JSON
@@ -106,13 +157,15 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history?limit=50"
 ```
 
-### 2.7 内置页面路由
+### 2.8 内置页面路由
 
 - 检测页：`GET /predict/dashboard`
 - 监控页：`GET /telemetry/dashboard`
 - 历史页：`GET /history/dashboard`
+- 决策页：`GET /decision/dashboard`
+- 预测页：`GET /forecast/dashboard`
 
-### 2.7 周级喷施决策（Demo）
+### 2.9 周级喷施决策（Demo）
 
 - `POST /decision/weekly`
 - Content-Type: `application/json`
@@ -149,6 +202,7 @@ curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azureco
 
 详细结构说明见：`docs/PROJECT_STRUCTURE.md`。
 文档导航见：`docs/README.md`。
+当前系统状态见：`docs/CURRENT_SYSTEM_STATUS_AND_TESTING_CN.md`。
 
 ## 4. 本地页面
 

@@ -1,0 +1,40 @@
+{
+  "names": {
+    "0": "aphid"
+  },
+  "splits": {
+    "train": {
+      "image_dirs": [
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\train\\images"
+      ],
+      "image_count": 1710,
+      "label_file_count": 1710,
+      "bbox_count": 17253,
+      "bbox_count_by_class": {
+        "aphid": 17253
+      }
+    },
+    "val": {
+      "image_dirs": [
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\valid\\images"
+      ],
+      "image_count": 179,
+      "label_file_count": 179,
+      "bbox_count": 1867,
+      "bbox_count_by_class": {
+        "aphid": 1867
+      }
+    },
+    "test": {
+      "image_dirs": [
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\test\\images"
+      ],
+      "image_count": 76,
+      "label_file_count": 76,
+      "bbox_count": 698,
+      "bbox_count_by_class": {
+        "aphid": 698
+      }
+    }
+  }
+}
