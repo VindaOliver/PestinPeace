@@ -216,7 +216,7 @@ def main() -> int:
     # 5) Predict valid
     if sample_image.exists():
         with sample_image.open("rb") as f:
-            rr = client.post("/predict", files={"image": (sample_image.name, f, "image/jpeg")})
+            rr = client.post("/predict?device_id=smoke-test-001", files={"image": (sample_image.name, f, "image/jpeg")})
         jj = _safe_json(rr)
         report["responses"]["predict_valid"] = {"status_code": rr.status_code, "json": jj}
         _expect_status(checks, "predict_valid_status", rr.status_code, 200)
@@ -226,7 +226,7 @@ def main() -> int:
         checks.append(CheckResult("predict_valid_skipped", False, f"sample image not found: {sample_image}"))
 
     # 6) Predict invalid
-    rr = client.post("/predict", files={"image": ("bad.txt", b"not an image", "text/plain")})
+    rr = client.post("/predict?device_id=smoke-test-001", files={"image": ("bad.txt", b"not an image", "text/plain")})
     jj = _safe_json(rr)
     report["responses"]["predict_invalid"] = {"status_code": rr.status_code, "json": jj}
     _expect_status(checks, "predict_invalid_status", rr.status_code, 400)

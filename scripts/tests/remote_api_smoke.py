@@ -148,7 +148,7 @@ def main() -> int:
     if sample_image.exists():
         with sample_image.open("rb") as f:
             rr = requests.post(
-                f"{base}/predict",
+                f"{base}/predict?device_id=smoke-test-001",
                 files={"image": (sample_image.name, f, "image/jpeg")},
                 timeout=60,
             )
@@ -159,7 +159,7 @@ def main() -> int:
         checks.append(CheckResult("predict_valid_status", False, f"missing sample image: {sample_image}"))
 
     rr = requests.post(
-        f"{base}/predict",
+        f"{base}/predict?device_id=smoke-test-001",
         files={"image": ("bad.txt", b"not an image", "text/plain")},
         timeout=30,
     )

@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import math
 import os
 import pickle
 import re
+import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -71,13 +73,23 @@ FORECAST_LATITUDE = float(os.getenv("FORECAST_LATITUDE", "51.5072"))
 FORECAST_LONGITUDE = float(os.getenv("FORECAST_LONGITUDE", "-0.1276"))
 FORECAST_TIMEZONE = os.getenv("FORECAST_TIMEZONE", "Europe/London")
 WEATHER_REQUEST_TIMEOUT_SEC = int(os.getenv("WEATHER_REQUEST_TIMEOUT_SEC", "20"))
+REQUEST_RETRY_ATTEMPTS = int(os.getenv("REQUEST_RETRY_ATTEMPTS", "3"))
+REQUEST_RETRY_BACKOFF_SEC = float(os.getenv("REQUEST_RETRY_BACKOFF_SEC", "0.75"))
+AZURE_RETRY_ATTEMPTS = int(os.getenv("AZURE_RETRY_ATTEMPTS", "3"))
+AZURE_RETRY_BACKOFF_SEC = float(os.getenv("AZURE_RETRY_BACKOFF_SEC", "0.4"))
 
 # Fail fast if the primary YOLO model is not available.
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("aphid_api")
+
 model = YOLO(MODEL_PATH)
-app = FastAPI(title="Aphid YOLO26 Inference API", version="1.6.0")
+app = FastAPI(title="Aphid YOLO26 Inference API", version="1.7.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -552,6 +564,44 @@ def _check_iot_api_key(x_api_key: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key.")
 
 
+def _retry_call(action_name: str, attempts: int, base_delay_sec: float, func) -> Any:
+    """Run a callable with simple bounded retries and structured warning logs."""
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max(attempts, 1) + 1):
+        try:
+            return func()
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= max(attempts, 1):
+                break
+            sleep_for = base_delay_sec * attempt
+            logger.warning(
+                "retrying action=%s attempt=%s/%s sleep_sec=%.2f reason=%s",
+                action_name,
+                attempt,
+                attempts,
+                sleep_for,
+                exc,
+            )
+            time.sleep(sleep_for)
+    logger.error("action_failed action=%s attempts=%s reason=%s", action_name, attempts, last_exc)
+    if last_exc is None:
+        raise RuntimeError(f"{action_name} failed without an exception.")
+    raise last_exc
+
+
+def _table_upsert_with_retries(table_client: Any, entity: dict[str, Any], *, context: str) -> None:
+    """Persist one Azure Table entity with bounded retries."""
+
+    _retry_call(
+        f"azure_table_upsert:{context}",
+        AZURE_RETRY_ATTEMPTS,
+        AZURE_RETRY_BACKOFF_SEC,
+        lambda: table_client.upsert_entity(entity=entity),
+    )
+
+
 def _vpd_kpa(t_c: float, rh_pct: float) -> float:
     """Compute VPD (kPa) from temperature and relative humidity."""
 
@@ -790,23 +840,30 @@ def _query_recent_partition_entities(
 ) -> list[dict[str, Any]]:
     """Read recent rows for one partition until the iterator reaches data older than start_ts."""
 
-    rows: list[dict[str, Any]] = []
     query_filter = "PartitionKey eq @partition_key"
     parameters = {"partition_key": partition_key}
 
-    for entity in table_client.query_entities(query_filter=query_filter, parameters=parameters):
-        parsed_ts = _parse_entity_ts(entity.get("ts"))
-        if parsed_ts is None:
-            continue
-        if parsed_ts < start_ts:
-            break
-        row = dict(entity)
-        row["_parsed_ts"] = parsed_ts
-        rows.append(row)
-        if len(rows) >= max_rows:
-            break
+    def _read_rows() -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for entity in table_client.query_entities(query_filter=query_filter, parameters=parameters):
+            parsed_ts = _parse_entity_ts(entity.get("ts"))
+            if parsed_ts is None:
+                continue
+            if parsed_ts < start_ts:
+                break
+            row = dict(entity)
+            row["_parsed_ts"] = parsed_ts
+            rows.append(row)
+            if len(rows) >= max_rows:
+                break
+        return rows
 
-    return rows
+    return _retry_call(
+        f"azure_table_query_recent:{partition_key}",
+        AZURE_RETRY_ATTEMPTS,
+        AZURE_RETRY_BACKOFF_SEC,
+        _read_rows,
+    )
 
 
 def _query_partition_window_entities(
@@ -819,26 +876,33 @@ def _query_partition_window_entities(
 ) -> list[dict[str, Any]]:
     """Read rows for one partition and optionally filter them into a time window."""
 
-    rows: list[dict[str, Any]] = []
     query_filter = "PartitionKey eq @partition_key"
     parameters = {"partition_key": partition_key}
 
-    for entity in table_client.query_entities(query_filter=query_filter, parameters=parameters):
-        parsed_ts = _parse_entity_ts(entity.get("ts"))
-        if parsed_ts is None:
-            continue
-        if end_ts is not None and parsed_ts > end_ts:
-            continue
-        if start_ts is not None and parsed_ts < start_ts:
-            break
+    def _read_rows() -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for entity in table_client.query_entities(query_filter=query_filter, parameters=parameters):
+            parsed_ts = _parse_entity_ts(entity.get("ts"))
+            if parsed_ts is None:
+                continue
+            if end_ts is not None and parsed_ts > end_ts:
+                continue
+            if start_ts is not None and parsed_ts < start_ts:
+                break
 
-        row = dict(entity)
-        row["_parsed_ts"] = parsed_ts
-        rows.append(row)
-        if len(rows) >= limit:
-            break
+            row = dict(entity)
+            row["_parsed_ts"] = parsed_ts
+            rows.append(row)
+            if len(rows) >= limit:
+                break
+        return rows
 
-    return rows
+    return _retry_call(
+        f"azure_table_query_window:{partition_key}",
+        AZURE_RETRY_ATTEMPTS,
+        AZURE_RETRY_BACKOFF_SEC,
+        _read_rows,
+    )
 
 
 def _split_rows_by_window(
@@ -1014,7 +1078,12 @@ def _fetch_london_weather_forecast(days: int, observed_weather: dict[str, Any]) 
     }
 
     try:
-        response = requests.get(OPEN_METEO_FORECAST_URL, params=params, timeout=WEATHER_REQUEST_TIMEOUT_SEC)
+        response = _retry_call(
+            "open_meteo_forecast",
+            REQUEST_RETRY_ATTEMPTS,
+            REQUEST_RETRY_BACKOFF_SEC,
+            lambda: requests.get(OPEN_METEO_FORECAST_URL, params=params, timeout=WEATHER_REQUEST_TIMEOUT_SEC),
+        )
         response.raise_for_status()
         payload = response.json()
         daily = payload.get("daily")
@@ -1293,6 +1362,7 @@ def health() -> dict[str, Any]:
         "decision_history_enabled": decision_history_table is not None,
         "decision_history_table": DECISION_HISTORY_TABLE,
         "decision_history_error": decision_history_table_error or None,
+        "iot_api_key_configured": bool(IOT_API_KEY),
         "tepp_demo_model_enabled": tepp_model is not None,
         "tepp_demo_model_path": TEPP_DEMO_MODEL_PATH,
         "tepp_demo_meta_path": TEPP_DEMO_META_PATH,
@@ -1306,6 +1376,27 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.get("/ready")
+def ready() -> dict[str, Any]:
+    """Readiness probe with explicit dependency checks and soft warnings."""
+
+    checks = {
+        "model_loaded": os.path.exists(MODEL_PATH),
+        "blob_ready": blob_service is not None and not blob_image_error and not blob_history_error,
+        "telemetry_table_ready": telemetry_table is not None,
+        "aphid_count_table_ready": aphid_count_table is not None,
+        "decision_history_table_ready": decision_history_table is not None,
+    }
+    warnings: list[str] = []
+    if not IOT_API_KEY:
+        warnings.append("IOT_API_KEY is not configured; write endpoints are not protected by an API key.")
+    return {
+        "status": "ready" if all(checks.values()) else "not_ready",
+        "checks": checks,
+        "warnings": warnings,
+    }
+
+
 @app.post("/predict")
 async def predict(
     image: UploadFile = File(...),
@@ -1313,7 +1404,7 @@ async def predict(
     iou: float = DEFAULT_IOU,
     imgsz: int = DEFAULT_IMGSZ,
     max_det: int = DEFAULT_MAX_DET,
-    device_id: str | None = Query(default=None, min_length=1, max_length=64),
+    device_id: str = Query(..., min_length=1, max_length=64),
 ) -> dict[str, Any]:
     """Run YOLO inference on uploaded image and optionally persist blobs/history."""
 
@@ -1359,6 +1450,7 @@ async def predict(
                 }
             )
 
+    normalized_device_id = device_id.strip()
     request_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:10]}"
     safe_name = _safe_filename(image.filename)
     image_blob_name = f"{request_id}_{safe_name}"
@@ -1376,12 +1468,12 @@ async def predict(
     history_url = None
     history_error = None
     ts_now = datetime.now(timezone.utc)
-    aphid_partition = device_id.strip() if isinstance(device_id, str) and device_id.strip() else "default"
+    aphid_partition = normalized_device_id
     history_payload: dict[str, Any] = {
         "request_id": request_id,
         "timestamp_utc": ts_now.isoformat(),
         "filename": image.filename,
-        "device_id": device_id,
+        "device_id": normalized_device_id,
         "count": len(detections),
         "detections": detections,
         "query": {
@@ -1426,17 +1518,23 @@ async def predict(
             "created_at": ts_now.isoformat(),
         }
         try:
-            aphid_count_table.upsert_entity(entity=count_entity)
+            _table_upsert_with_retries(aphid_count_table, count_entity, context="predict_aphid_count")
             aphid_count_saved = True
         except Exception as exc:
             aphid_count_error = str(exc)
+            logger.error(
+                "predict_aphid_count_upsert_failed device_id=%s request_id=%s reason=%s",
+                normalized_device_id,
+                request_id,
+                exc,
+            )
     else:
         aphid_count_error = aphid_count_table_error or "Aphid count table is not configured."
 
     response = {
         "request_id": request_id,
         "filename": image.filename,
-        "device_id": device_id,
+        "device_id": normalized_device_id,
         "count": len(detections),
         "detections": detections,
         "blob_saved": storage_error is None,
@@ -1573,7 +1671,11 @@ def upload_telemetry(
         "shots_planned": payload.shots_planned,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    telemetry_table.upsert_entity(entity=entity)
+    try:
+        _table_upsert_with_retries(telemetry_table, entity, context="telemetry")
+    except Exception as exc:
+        logger.error("telemetry_upsert_failed device_id=%s reason=%s", payload.device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Telemetry write failed: {exc}") from exc
     return {"status": "ok", "device_id": payload.device_id, "ts": entity["ts"]}
 
 
@@ -1590,14 +1692,19 @@ def telemetry_latest(
     if telemetry_table is None:
         raise HTTPException(status_code=503, detail=f"Telemetry storage unavailable: {telemetry_init_error}")
 
-    items: list[dict[str, Any]] = []
-    query_filter = "PartitionKey eq @device_id"
-    parameters = {"device_id": device_id}
+    try:
+        rows = _query_partition_window_entities(
+            telemetry_table,
+            device_id,
+            start_ts=None,
+            end_ts=None,
+            limit=limit,
+        )
+    except Exception as exc:
+        logger.error("telemetry_latest_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Telemetry query failed: {exc}") from exc
 
-    for entity in telemetry_table.query_entities(query_filter=query_filter, parameters=parameters):
-        items.append(_serialize_telemetry_row(dict(entity)))
-        if len(items) >= limit:
-            break
+    items = [_serialize_telemetry_row(row) for row in rows]
 
     return {"device_id": device_id, "count": len(items), "items": items}
 
@@ -1619,13 +1726,17 @@ def grafana_telemetry(
 
     start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
     end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
-    rows = _query_partition_window_entities(
-        telemetry_table,
-        device_id,
-        start_ts=start_utc,
-        end_ts=end_utc,
-        limit=limit,
-    )
+    try:
+        rows = _query_partition_window_entities(
+            telemetry_table,
+            device_id,
+            start_ts=start_utc,
+            end_ts=end_utc,
+            limit=limit,
+        )
+    except Exception as exc:
+        logger.error("grafana_telemetry_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Telemetry query failed: {exc}") from exc
 
     items = [
         _serialize_telemetry_row(row)
@@ -1663,18 +1774,22 @@ def grafana_aphidcounts(
     rows: list[dict[str, Any]] = []
     warnings: list[str] = []
 
-    for partition_key in partitions_to_try:
-        candidate_rows = _query_partition_window_entities(
-            aphid_count_table,
-            partition_key,
-            start_ts=start_utc,
-            end_ts=end_utc,
-            limit=limit,
-        )
-        if candidate_rows:
-            rows = candidate_rows
-            selected_partition = partition_key
-            break
+    try:
+        for partition_key in partitions_to_try:
+            candidate_rows = _query_partition_window_entities(
+                aphid_count_table,
+                partition_key,
+                start_ts=start_utc,
+                end_ts=end_utc,
+                limit=limit,
+            )
+            if candidate_rows:
+                rows = candidate_rows
+                selected_partition = partition_key
+                break
+    except Exception as exc:
+        logger.error("grafana_aphidcounts_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Aphid count query failed: {exc}") from exc
 
     if rows and selected_partition != device_id:
         warnings.append(
@@ -1711,21 +1826,25 @@ def predict_trend(
 
     now_utc = datetime.now(timezone.utc)
     start_utc = now_utc - timedelta(days=days)
-    rows = _query_partition_window_entities(
-        aphid_count_table,
-        device_id,
-        start_ts=start_utc,
-        end_ts=now_utc,
-        limit=5000,
-    )
-    if not rows and device_id != "default":
+    try:
         rows = _query_partition_window_entities(
             aphid_count_table,
-            "default",
+            device_id,
             start_ts=start_utc,
             end_ts=now_utc,
             limit=5000,
         )
+        if not rows and device_id != "default":
+            rows = _query_partition_window_entities(
+                aphid_count_table,
+                "default",
+                start_ts=start_utc,
+                end_ts=now_utc,
+                limit=5000,
+            )
+    except Exception as exc:
+        logger.error("predict_trend_query_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Aphid trend query failed: {exc}") from exc
 
     trend_payload = _build_daily_aphid_trend(list(reversed(rows)))
     return {
@@ -1774,7 +1893,11 @@ def upload_decision_history(
         "notes": payload.notes,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    decision_history_table.upsert_entity(entity=entity)
+    try:
+        _table_upsert_with_retries(decision_history_table, entity, context="decision_history")
+    except Exception as exc:
+        logger.error("decision_history_upsert_failed device_id=%s decision_id=%s reason=%s", payload.device_id, decision_id, exc)
+        raise HTTPException(status_code=502, detail=f"Decision history write failed: {exc}") from exc
 
     return {
         "status": "ok",
@@ -1805,13 +1928,17 @@ def decision_history(
 
     start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
     end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
-    rows = _query_partition_window_entities(
-        decision_history_table,
-        device_id,
-        start_ts=start_utc,
-        end_ts=end_utc,
-        limit=limit,
-    )
+    try:
+        rows = _query_partition_window_entities(
+            decision_history_table,
+            device_id,
+            start_ts=start_utc,
+            end_ts=end_utc,
+            limit=limit,
+        )
+    except Exception as exc:
+        logger.error("decision_history_query_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Decision history query failed: {exc}") from exc
     items = [_serialize_decision_history_row(row) for row in rows]
     latest_item = items[0] if items else None
 
@@ -1840,13 +1967,17 @@ def grafana_decisionhistory(
 
     start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
     end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
-    rows = _query_partition_window_entities(
-        decision_history_table,
-        device_id,
-        start_ts=start_utc,
-        end_ts=end_utc,
-        limit=limit,
-    )
+    try:
+        rows = _query_partition_window_entities(
+            decision_history_table,
+            device_id,
+            start_ts=start_utc,
+            end_ts=end_utc,
+            limit=limit,
+        )
+    except Exception as exc:
+        logger.error("grafana_decisionhistory_failed device_id=%s reason=%s", device_id, exc)
+        raise HTTPException(status_code=502, detail=f"Decision history query failed: {exc}") from exc
     items = [_serialize_decision_history_row(row) for row in rows]
     return {
         "device_id": device_id,

@@ -383,6 +383,10 @@
         <label for="maxDet">max_det</label>
         <input id="maxDet" type="number" step="1" value="1000" />
       </div>
+      <div class="field">
+        <label for="deviceId">device_id</label>
+        <input id="deviceId" type="text" value="demo-trap-001" />
+      </div>
       <div class="field" style="grid-column: 1 / -1;">
         <label for="image">选择图片</label>
         <input id="image" type="file" accept="image/*" />
@@ -412,6 +416,7 @@
     const iouInput = document.getElementById("iou");
     const imgszInput = document.getElementById("imgsz");
     const maxDetInput = document.getElementById("maxDet");
+    const deviceIdInput = document.getElementById("deviceId");
     const imageInput = document.getElementById("image");
     const predictBtn = document.getElementById("predictBtn");
     const healthBtn = document.getElementById("healthBtn");
@@ -540,8 +545,14 @@
         conf: confInput.value || "0.25",
         iou: iouInput.value || "0.45",
         imgsz: imgszInput.value || "640",
-        max_det: maxDetInput.value || "1000"
+        max_det: maxDetInput.value || "1000",
+        device_id: (deviceIdInput.value || "").trim()
       });
+
+      if (!params.get("device_id")) {
+        setStatus("请先填写 device_id。", true);
+        return;
+      }
 
       try {
         setStatus("正在上传并推理...");
