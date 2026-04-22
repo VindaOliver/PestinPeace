@@ -7,7 +7,8 @@ This module wires together:
 4) Weekly spray-scope decision endpoint (`/decision/weekly`)
 5) Weekly aphid trend forecast endpoint (`/forecast/weekly`)
 6) Grafana-friendly raw table query endpoints (`/grafana/telemetry`, `/grafana/aphidcounts`)
-7) Built-in dashboard static page routes
+7) Decision history + aphid trend helper endpoints
+8) Built-in dashboard static page routes
 """
 
 from __future__ import annotations
@@ -57,6 +58,7 @@ BLOB_CONTAINER_HISTORY = os.getenv("BLOB_CONTAINER_HISTORY", "aphid-history")
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", BLOB_CONNECTION_STRING)
 TELEMETRY_TABLE = os.getenv("TELEMETRY_TABLE", "iottelemetry")
 APHID_COUNT_TABLE = os.getenv("APHID_COUNT_TABLE", "aphidcounts")
+DECISION_HISTORY_TABLE = os.getenv("DECISION_HISTORY_TABLE", "decisionhistory")
 IOT_API_KEY = os.getenv("IOT_API_KEY", "")
 TELEMETRY_DASHBOARD_PATH = os.getenv("TELEMETRY_DASHBOARD_PATH", str(APP_DIR / "telemetry_dashboard.html"))
 PREDICT_DASHBOARD_PATH = os.getenv("PREDICT_DASHBOARD_PATH", str(APP_DIR / "local_web_client.html"))
@@ -126,6 +128,8 @@ telemetry_table = None
 telemetry_init_error = ""
 aphid_count_table = None
 aphid_count_table_error = ""
+decision_history_table = None
+decision_history_table_error = ""
 if AZURE_STORAGE_CONNECTION_STRING:
     try:
         table_service = TableServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
@@ -133,6 +137,7 @@ if AZURE_STORAGE_CONNECTION_STRING:
         telemetry_init_error = str(exc)
         telemetry_table = None
         aphid_count_table = None
+        decision_history_table = None
     else:
         try:
             table_service.create_table_if_not_exists(TELEMETRY_TABLE)
@@ -147,9 +152,17 @@ if AZURE_STORAGE_CONNECTION_STRING:
         except Exception as exc:
             aphid_count_table_error = str(exc)
             aphid_count_table = None
+
+        try:
+            table_service.create_table_if_not_exists(DECISION_HISTORY_TABLE)
+            decision_history_table = table_service.get_table_client(DECISION_HISTORY_TABLE)
+        except Exception as exc:
+            decision_history_table_error = str(exc)
+            decision_history_table = None
 else:
     telemetry_init_error = "AZURE_STORAGE_CONNECTION_STRING is empty."
     aphid_count_table_error = "AZURE_STORAGE_CONNECTION_STRING is empty."
+    decision_history_table_error = "AZURE_STORAGE_CONNECTION_STRING is empty."
 
 
 class TelemetryIn(BaseModel):
@@ -160,7 +173,36 @@ class TelemetryIn(BaseModel):
     humidity: float | None = None
     pressure_hpa: float | None = None
     light: float | None = None
+    round_id: str | None = Field(default=None, min_length=1, max_length=128)
+    lux_avg: float | None = None
+    lux_valid: int | None = Field(default=None, ge=0, le=1)
+    env_valid: int | None = Field(default=None, ge=0, le=1)
+    temperature_c: float | None = None
+    humidity_pct: float | None = None
+    soil_valid: int | None = Field(default=None, ge=0, le=1)
+    soil_raw: int | None = None
+    soil_moisture_pct: float | None = None
+    fill_on: int | None = Field(default=None, ge=0, le=1)
+    shots_planned: int | None = Field(default=None, ge=0, le=20)
     ts: datetime | None = None
+
+
+class DecisionHistoryIn(BaseModel):
+    """Payload schema for persisting one decision/action record."""
+
+    device_id: str = Field(..., min_length=1, max_length=64)
+    ts: datetime | None = None
+    round_id: str | None = Field(default=None, min_length=1, max_length=128)
+    decision_id: str | None = Field(default=None, min_length=1, max_length=128)
+    scope_class: int = Field(..., ge=0, le=2)
+    scope_name: str | None = Field(default=None, min_length=1, max_length=64)
+    should_spray: bool | None = None
+    spray_applied: bool | None = None
+    product_kg: float | None = Field(default=None, ge=0)
+    spray_l: float | None = Field(default=None, ge=0)
+    source: str = Field(default="manual", min_length=1, max_length=64)
+    reason: str | None = Field(default=None, max_length=512)
+    notes: str | None = Field(default=None, max_length=1024)
 
 
 class WeeklyScopeDecisionIn(BaseModel):
@@ -590,6 +632,153 @@ def _parse_entity_ts(value: Any) -> datetime | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
+
+def _serialize_telemetry_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Normalize telemetry entity fields for API responses."""
+
+    ts_value = row.get("ts")
+    return {
+        "device_id": row.get("device_id"),
+        "round_id": row.get("round_id"),
+        "ts": ts_value,
+        "ts_utc": ts_value,
+        "temperature": row.get("temperature"),
+        "temperature_c": row.get("temperature_c", row.get("temperature")),
+        "humidity": row.get("humidity"),
+        "humidity_pct": row.get("humidity_pct", row.get("humidity")),
+        "pressure_hpa": row.get("pressure_hpa"),
+        "light": row.get("light"),
+        "lux_avg": row.get("lux_avg", row.get("light")),
+        "lux_valid": row.get("lux_valid"),
+        "env_valid": row.get("env_valid"),
+        "soil_valid": row.get("soil_valid"),
+        "soil_raw": row.get("soil_raw"),
+        "soil_moisture_pct": row.get("soil_moisture_pct"),
+        "fill_on": row.get("fill_on"),
+        "shots_planned": row.get("shots_planned"),
+    }
+
+
+def _serialize_aphid_count_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Normalize aphid count entity fields for API responses."""
+
+    ts_value = row.get("ts")
+    count_value = row.get("count")
+    return {
+        "device_id": row.get("device_id"),
+        "source_device_id": row.get("source_device_id"),
+        "request_id": row.get("request_id"),
+        "round_id": row.get("round_id", row.get("request_id")),
+        "ts": ts_value,
+        "ts_utc": ts_value,
+        "filename": row.get("filename"),
+        "count": count_value,
+        "count_mean": row.get("count_mean", count_value),
+        "images_in_round": row.get("images_in_round", 1),
+        "aggregation_mode": row.get("aggregation_mode", "single_image"),
+        "image_blob_name": row.get("image_blob_name"),
+        "history_blob_name": row.get("history_blob_name"),
+    }
+
+
+def _serialize_decision_history_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Normalize decision history entity fields for API responses."""
+
+    ts_value = row.get("ts")
+    scope_class = int(row.get("scope_class") or 0)
+    should_spray = row.get("should_spray")
+    spray_applied = row.get("spray_applied")
+    return {
+        "device_id": row.get("device_id"),
+        "decision_id": row.get("decision_id"),
+        "round_id": row.get("round_id"),
+        "ts": ts_value,
+        "ts_utc": ts_value,
+        "scope_class": scope_class,
+        "scope_name": row.get("scope_name", _scope_name(scope_class)),
+        "should_spray": bool(should_spray) if should_spray is not None else scope_class > 0,
+        "spray_applied": bool(spray_applied) if spray_applied is not None else False,
+        "product_kg": row.get("product_kg"),
+        "spray_l": row.get("spray_l"),
+        "source": row.get("source"),
+        "reason": row.get("reason"),
+        "notes": row.get("notes"),
+    }
+
+
+def _trend_label_from_delta(delta: float, *, stable_band: float = 0.5) -> str:
+    """Map a numeric delta into a simple semantic trend label."""
+
+    if delta > stable_band:
+        return "up"
+    if delta < -stable_band:
+        return "down"
+    return "stable"
+
+
+def _build_daily_aphid_trend(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate aphid count rows into daily points and a lightweight trend summary."""
+
+    buckets: dict[str, list[float]] = {}
+    for row in rows:
+        parsed_ts = row.get("_parsed_ts")
+        if not isinstance(parsed_ts, datetime):
+            continue
+        count_value = _parse_float_or_none(row.get("count"))
+        if count_value is None:
+            continue
+        bucket_key = parsed_ts.date().isoformat()
+        buckets.setdefault(bucket_key, []).append(float(count_value))
+
+    points: list[dict[str, Any]] = []
+    for bucket_key in sorted(buckets.keys()):
+        values = buckets[bucket_key]
+        points.append(
+            {
+                "date": bucket_key,
+                "rounds": len(values),
+                "count_sum": round(float(sum(values)), 4),
+                "count_avg": round(float(sum(values) / len(values)), 4),
+                "count_min": round(float(min(values)), 4),
+                "count_max": round(float(max(values)), 4),
+            }
+        )
+
+    daily_averages = [float(point["count_avg"]) for point in points]
+    moving_window = min(7, len(daily_averages))
+    moving_average_points: list[dict[str, Any]] = []
+    if moving_window > 0:
+        for idx in range(len(points)):
+            start = max(0, idx - moving_window + 1)
+            subset = daily_averages[start : idx + 1]
+            moving_average_points.append(
+                {
+                    "date": points[idx]["date"],
+                    "count_avg_ma": round(float(sum(subset) / len(subset)), 4),
+                }
+            )
+
+    first_avg = daily_averages[0] if daily_averages else 0.0
+    last_avg = daily_averages[-1] if daily_averages else 0.0
+    delta = float(last_avg - first_avg)
+    trend_label = _trend_label_from_delta(delta)
+    recent_avg = float(sum(daily_averages[-7:]) / len(daily_averages[-7:])) if daily_averages else 0.0
+    predicted_next_avg = max(0.0, last_avg + (delta / max(len(daily_averages), 1)))
+
+    return {
+        "points": points,
+        "moving_average": moving_average_points,
+        "summary": {
+            "days": len(points),
+            "first_daily_avg": round(first_avg, 4),
+            "last_daily_avg": round(last_avg, 4),
+            "delta": round(delta, 4),
+            "trend_label": trend_label,
+            "recent_7d_avg": round(recent_avg, 4),
+            "predicted_next_daily_avg": round(predicted_next_avg, 4),
+        },
+    }
 
 
 def _query_recent_partition_entities(
@@ -1101,6 +1290,9 @@ def health() -> dict[str, Any]:
         "aphid_count_enabled": aphid_count_table is not None,
         "aphid_count_table": APHID_COUNT_TABLE,
         "aphid_count_error": aphid_count_table_error or None,
+        "decision_history_enabled": decision_history_table is not None,
+        "decision_history_table": DECISION_HISTORY_TABLE,
+        "decision_history_error": decision_history_table_error or None,
         "tepp_demo_model_enabled": tepp_model is not None,
         "tepp_demo_model_path": TEPP_DEMO_MODEL_PATH,
         "tepp_demo_meta_path": TEPP_DEMO_META_PATH,
@@ -1222,9 +1414,13 @@ async def predict(
             "device_id": aphid_partition,
             "source_device_id": device_id,
             "request_id": request_id,
+            "round_id": request_id,
             "ts": ts_now.isoformat(),
             "filename": image.filename,
             "count": len(detections),
+            "count_mean": float(len(detections)),
+            "images_in_round": 1,
+            "aggregation_mode": "single_image",
             "image_blob_name": image_blob_name if image_url else None,
             "history_blob_name": history_blob_name if history_url else None,
             "created_at": ts_now.isoformat(),
@@ -1247,6 +1443,9 @@ async def predict(
         "history_saved": history_error is None,
         "aphid_count_table_saved": aphid_count_saved,
         "aphid_count_partition": aphid_partition,
+        "images_in_round": 1,
+        "aggregation_mode": "single_image",
+        "count_mean": float(len(detections)),
     }
     if image_url:
         response["image_blob_name"] = image_blob_name
@@ -1349,15 +1548,29 @@ def upload_telemetry(
         raise HTTPException(status_code=503, detail=f"Telemetry storage unavailable: {telemetry_init_error}")
 
     ts = payload.ts.astimezone(timezone.utc) if payload.ts else datetime.now(timezone.utc)
+    light_value = payload.light if payload.light is not None else payload.lux_avg
+    temperature_value = payload.temperature if payload.temperature is not None else payload.temperature_c
+    humidity_value = payload.humidity if payload.humidity is not None else payload.humidity_pct
     entity = {
         "PartitionKey": payload.device_id,
         "RowKey": _desc_row_key(ts),
         "device_id": payload.device_id,
         "ts": ts.isoformat(),
-        "temperature": payload.temperature,
-        "humidity": payload.humidity,
+        "round_id": payload.round_id,
+        "temperature": temperature_value,
+        "temperature_c": temperature_value,
+        "humidity": humidity_value,
+        "humidity_pct": humidity_value,
         "pressure_hpa": payload.pressure_hpa,
-        "light": payload.light,
+        "light": light_value,
+        "lux_avg": light_value,
+        "lux_valid": payload.lux_valid,
+        "env_valid": payload.env_valid,
+        "soil_valid": payload.soil_valid,
+        "soil_raw": payload.soil_raw,
+        "soil_moisture_pct": payload.soil_moisture_pct,
+        "fill_on": payload.fill_on,
+        "shots_planned": payload.shots_planned,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     telemetry_table.upsert_entity(entity=entity)
@@ -1382,16 +1595,7 @@ def telemetry_latest(
     parameters = {"device_id": device_id}
 
     for entity in telemetry_table.query_entities(query_filter=query_filter, parameters=parameters):
-        items.append(
-            {
-                "device_id": entity.get("device_id"),
-                "ts": entity.get("ts"),
-                "temperature": entity.get("temperature"),
-                "humidity": entity.get("humidity"),
-                "pressure_hpa": entity.get("pressure_hpa"),
-                "light": entity.get("light"),
-            }
-        )
+        items.append(_serialize_telemetry_row(dict(entity)))
         if len(items) >= limit:
             break
 
@@ -1424,14 +1628,7 @@ def grafana_telemetry(
     )
 
     items = [
-        {
-            "device_id": row.get("device_id"),
-            "ts": row.get("ts"),
-            "temperature": row.get("temperature"),
-            "humidity": row.get("humidity"),
-            "pressure_hpa": row.get("pressure_hpa"),
-            "light": row.get("light"),
-        }
+        _serialize_telemetry_row(row)
         for row in rows
     ]
 
@@ -1487,16 +1684,7 @@ def grafana_aphidcounts(
         warnings.append(f"No aphid count rows were found for '{device_id}'.")
 
     items = [
-        {
-            "device_id": row.get("device_id"),
-            "source_device_id": row.get("source_device_id"),
-            "request_id": row.get("request_id"),
-            "ts": row.get("ts"),
-            "filename": row.get("filename"),
-            "count": row.get("count"),
-            "image_blob_name": row.get("image_blob_name"),
-            "history_blob_name": row.get("history_blob_name"),
-        }
+        _serialize_aphid_count_row(row)
         for row in rows
     ]
 
@@ -1508,6 +1696,164 @@ def grafana_aphidcounts(
         "count": len(items),
         "items": items,
         "warnings": warnings,
+    }
+
+
+@app.get("/predict/trend")
+def predict_trend(
+    device_id: str = Query(..., min_length=1, max_length=64),
+    days: int = Query(31, ge=7, le=90),
+) -> dict[str, Any]:
+    """Return daily aphid-count trend points plus a simple next-step trend summary."""
+
+    if aphid_count_table is None:
+        raise HTTPException(status_code=503, detail=f"Aphid count storage unavailable: {aphid_count_table_error}")
+
+    now_utc = datetime.now(timezone.utc)
+    start_utc = now_utc - timedelta(days=days)
+    rows = _query_partition_window_entities(
+        aphid_count_table,
+        device_id,
+        start_ts=start_utc,
+        end_ts=now_utc,
+        limit=5000,
+    )
+    if not rows and device_id != "default":
+        rows = _query_partition_window_entities(
+            aphid_count_table,
+            "default",
+            start_ts=start_utc,
+            end_ts=now_utc,
+            limit=5000,
+        )
+
+    trend_payload = _build_daily_aphid_trend(list(reversed(rows)))
+    return {
+        "device_id": device_id,
+        "window_days": days,
+        "from": start_utc.isoformat(),
+        "to": now_utc.isoformat(),
+        "raw_rows": len(rows),
+        "trend": trend_payload,
+    }
+
+
+@app.post("/decision/history")
+def upload_decision_history(
+    payload: DecisionHistoryIn,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    """Persist one decision/action history record for later querying."""
+
+    _check_iot_api_key(x_api_key)
+
+    if decision_history_table is None:
+        raise HTTPException(status_code=503, detail=f"Decision history storage unavailable: {decision_history_table_error}")
+
+    ts = payload.ts.astimezone(timezone.utc) if payload.ts else datetime.now(timezone.utc)
+    decision_id = payload.decision_id or f"decision_{uuid.uuid4().hex[:12]}"
+    scope_name = payload.scope_name or _scope_name(payload.scope_class)
+    should_spray = bool(payload.should_spray) if payload.should_spray is not None else int(payload.scope_class) > 0
+    spray_applied = bool(payload.spray_applied) if payload.spray_applied is not None else False
+
+    entity = {
+        "PartitionKey": payload.device_id,
+        "RowKey": _desc_row_key(ts),
+        "device_id": payload.device_id,
+        "decision_id": decision_id,
+        "round_id": payload.round_id,
+        "ts": ts.isoformat(),
+        "scope_class": int(payload.scope_class),
+        "scope_name": scope_name,
+        "should_spray": should_spray,
+        "spray_applied": spray_applied,
+        "product_kg": payload.product_kg,
+        "spray_l": payload.spray_l,
+        "source": payload.source,
+        "reason": payload.reason,
+        "notes": payload.notes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    decision_history_table.upsert_entity(entity=entity)
+
+    return {
+        "status": "ok",
+        "device_id": payload.device_id,
+        "decision_id": decision_id,
+        "ts": entity["ts"],
+        "scope_class": int(payload.scope_class),
+        "scope_name": scope_name,
+        "should_spray": should_spray,
+        "spray_applied": spray_applied,
+    }
+
+
+@app.get("/decision/history")
+def decision_history(
+    device_id: str = Query(..., min_length=1, max_length=64),
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(50, ge=1, le=500),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    """Return recent decision/action records and whether the latest uploaded record was a spray event."""
+
+    _check_iot_api_key(x_api_key)
+
+    if decision_history_table is None:
+        raise HTTPException(status_code=503, detail=f"Decision history storage unavailable: {decision_history_table_error}")
+
+    start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
+    end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
+    rows = _query_partition_window_entities(
+        decision_history_table,
+        device_id,
+        start_ts=start_utc,
+        end_ts=end_utc,
+        limit=limit,
+    )
+    items = [_serialize_decision_history_row(row) for row in rows]
+    latest_item = items[0] if items else None
+
+    return {
+        "device_id": device_id,
+        "from": start_utc.isoformat() if start_utc is not None else None,
+        "to": end_utc.isoformat() if end_utc is not None else None,
+        "count": len(items),
+        "last_uploaded_record_is_spray": bool(latest_item.get("spray_applied")) if latest_item else False,
+        "last_uploaded_record_should_spray": bool(latest_item.get("should_spray")) if latest_item else False,
+        "items": items,
+    }
+
+
+@app.get("/grafana/decisionhistory")
+def grafana_decisionhistory(
+    device_id: str = Query(..., min_length=1, max_length=64),
+    from_ts: datetime | None = Query(default=None, alias="from"),
+    to_ts: datetime | None = Query(default=None, alias="to"),
+    limit: int = Query(500, ge=1, le=5000),
+) -> dict[str, Any]:
+    """Return raw decision history rows for Grafana or other HTTP/JSON consumers."""
+
+    if decision_history_table is None:
+        raise HTTPException(status_code=503, detail=f"Decision history storage unavailable: {decision_history_table_error}")
+
+    start_utc = from_ts.astimezone(timezone.utc) if from_ts is not None else None
+    end_utc = to_ts.astimezone(timezone.utc) if to_ts is not None else None
+    rows = _query_partition_window_entities(
+        decision_history_table,
+        device_id,
+        start_ts=start_utc,
+        end_ts=end_utc,
+        limit=limit,
+    )
+    items = [_serialize_decision_history_row(row) for row in rows]
+    return {
+        "device_id": device_id,
+        "from": start_utc.isoformat() if start_utc is not None else None,
+        "to": end_utc.isoformat() if end_utc is not None else None,
+        "count": len(items),
+        "items": items,
     }
 
 
@@ -1550,6 +1896,7 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
     response: dict[str, Any] = {
         "scope_class": scope_class,
         "scope_name": _scope_name(scope_class),
+        "should_spray": scope_class > 0,
         "treated_fraction": treated_fraction,
         "water_l_ha": water_l_ha,
         "product_kg": round(product_kg, 4),
@@ -1585,6 +1932,15 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
         "label_constraints": {
             "tepp_rate_kg_ha": tepp_rate_kg_ha,
             "water_range_l_ha": [200, 500],
+        },
+        "decision_history_template": {
+            "scope_class": scope_class,
+            "scope_name": _scope_name(scope_class),
+            "should_spray": scope_class > 0,
+            "spray_applied": scope_class > 0,
+            "product_kg": round(product_kg, 4),
+            "spray_l": round(spray_l, 2),
+            "source": "weekly_scope_decision",
         },
     }
     return response
