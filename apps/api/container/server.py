@@ -31,7 +31,7 @@ from azure.data.tables import TableServiceClient
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from fastapi import FastAPI, File, HTTPException, Header, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from PIL import Image
 from pydantic import BaseModel, Field
 import requests
@@ -1390,20 +1390,22 @@ def ready() -> dict[str, Any]:
     warnings: list[str] = []
     if not IOT_API_KEY:
         warnings.append("IOT_API_KEY is not configured; write endpoints are not protected by an API key.")
-    return {
+    ready_state = all(checks.values())
+    payload = {
         "status": "ready" if all(checks.values()) else "not_ready",
         "checks": checks,
         "warnings": warnings,
     }
+    return JSONResponse(status_code=200 if ready_state else 503, content=payload)
 
 
 @app.post("/predict")
 async def predict(
     image: UploadFile = File(...),
-    conf: float = DEFAULT_CONF,
-    iou: float = DEFAULT_IOU,
-    imgsz: int = DEFAULT_IMGSZ,
-    max_det: int = DEFAULT_MAX_DET,
+    conf: float = Query(DEFAULT_CONF, ge=0.0, le=1.0),
+    iou: float = Query(DEFAULT_IOU, ge=0.0, le=1.0),
+    imgsz: int = Query(DEFAULT_IMGSZ, ge=32, le=1280),
+    max_det: int = Query(DEFAULT_MAX_DET, ge=1, le=5000),
     device_id: str = Query(..., min_length=1, max_length=64),
 ) -> dict[str, Any]:
     """Run YOLO inference on uploaded image and optionally persist blobs/history."""
@@ -1570,7 +1572,16 @@ def get_history(request: Request, limit: int = Query(50, ge=1, le=500)) -> dict[
         raise HTTPException(status_code=503, detail=f"History container unavailable: {blob_history_error}")
 
     container_client = blob_service.get_container_client(BLOB_CONTAINER_HISTORY)
-    blobs = list(container_client.list_blobs())
+    try:
+        blobs = _retry_call(
+            "blob_history_list",
+            REQUEST_RETRY_ATTEMPTS,
+            REQUEST_RETRY_BACKOFF_SEC,
+            lambda: list(container_client.list_blobs()),
+        )
+    except Exception as exc:
+        logger.error("history_list_failed reason=%s", exc)
+        raise HTTPException(status_code=502, detail=f"History list failed: {exc}") from exc
     blobs.sort(key=lambda b: b.name, reverse=True)
 
     records: list[dict[str, Any]] = []
