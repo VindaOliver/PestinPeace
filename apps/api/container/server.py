@@ -717,11 +717,122 @@ def _serialize_telemetry_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _coerce_count_int(value: Any, default: int | None = None) -> int | None:
+    """Convert numeric-like count values into non-negative integers."""
+
+    num = _coerce_float(value)
+    if num is None:
+        return default
+    return max(0, int(round(num)))
+
+
+def _parse_class_breakdown_value(value: Any) -> dict[str, int]:
+    """Parse serialized class breakdown into a normalized lowercase mapping."""
+
+    parsed: Any = value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return {}
+
+    if not isinstance(parsed, dict):
+        return {}
+
+    out: dict[str, int] = {}
+    for key, raw_value in parsed.items():
+        if key is None:
+            continue
+        normalized_key = str(key).strip().lower()
+        if not normalized_key:
+            continue
+        count_value = _coerce_count_int(raw_value, 0)
+        if count_value is None or count_value < 0:
+            continue
+        out[normalized_key] = count_value
+    return out
+
+
+def _extract_aphid_count_from_row(row: dict[str, Any]) -> int:
+    """Read aphid count from a row with backward compatibility for legacy data."""
+
+    count_value = _coerce_count_int(row.get("aphid_count"))
+    if count_value is not None:
+        return count_value
+    legacy_count = _coerce_count_int(row.get("count"), 0)
+    return legacy_count or 0
+
+
+def _extract_slug_count_from_row(row: dict[str, Any]) -> int:
+    """Read slug count from a row, defaulting to zero for legacy single-class rows."""
+
+    slug_count = _coerce_count_int(row.get("slug_count"), 0)
+    return slug_count or 0
+
+
+def _extract_total_count_from_row(row: dict[str, Any]) -> int:
+    """Read total detection count from a row with sensible fallback for legacy rows."""
+
+    total_count = _coerce_count_int(row.get("total_count"))
+    if total_count is not None:
+        return total_count
+    return _extract_aphid_count_from_row(row) + _extract_slug_count_from_row(row)
+
+
+def _extract_class_breakdown_from_row(row: dict[str, Any]) -> dict[str, int]:
+    """Read class breakdown mapping from a row with fallback reconstruction."""
+
+    breakdown = _parse_class_breakdown_value(row.get("class_breakdown_json"))
+    if breakdown:
+        return breakdown
+
+    aphid_count = _extract_aphid_count_from_row(row)
+    slug_count = _extract_slug_count_from_row(row)
+    out: dict[str, int] = {}
+    if aphid_count > 0:
+        out["aphid"] = aphid_count
+    if slug_count > 0:
+        out["slug"] = slug_count
+    return out
+
+
+def _summarize_detection_classes(detections: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate raw detection rows into per-class counts plus compatibility fields."""
+
+    breakdown: dict[str, int] = {}
+    for det in detections:
+        raw_name = det.get("class_name")
+        if raw_name is None:
+            raw_name = det.get("class_id", "unknown")
+        class_name = str(raw_name).strip().lower() or "unknown"
+        breakdown[class_name] = breakdown.get(class_name, 0) + 1
+
+    aphid_count = int(breakdown.get("aphid", 0))
+    slug_count = int(breakdown.get("slug", 0))
+    total_count = int(sum(breakdown.values()))
+    return {
+        "aphid_count": aphid_count,
+        "slug_count": slug_count,
+        "total_count": total_count,
+        "count": aphid_count,
+        "count_mean": float(aphid_count),
+        "class_breakdown": breakdown,
+        "class_breakdown_json": json.dumps(breakdown, ensure_ascii=False, sort_keys=True),
+    }
+
+
 def _serialize_aphid_count_row(row: dict[str, Any]) -> dict[str, Any]:
     """Normalize aphid count entity fields for API responses."""
 
     ts_value = row.get("ts")
-    count_value = row.get("count")
+    aphid_count = _extract_aphid_count_from_row(row)
+    slug_count = _extract_slug_count_from_row(row)
+    total_count = _extract_total_count_from_row(row)
+    count_value = aphid_count
+    class_breakdown = _extract_class_breakdown_from_row(row)
     return {
         "device_id": row.get("device_id"),
         "source_device_id": row.get("source_device_id"),
@@ -731,7 +842,13 @@ def _serialize_aphid_count_row(row: dict[str, Any]) -> dict[str, Any]:
         "ts_utc": ts_value,
         "filename": row.get("filename"),
         "count": count_value,
-        "count_mean": row.get("count_mean", count_value),
+        "count_mean": _coerce_float(row.get("count_mean")) if row.get("count_mean") is not None else float(count_value),
+        "aphid_count": aphid_count,
+        "slug_count": slug_count,
+        "total_count": total_count,
+        "class_breakdown": class_breakdown,
+        "class_breakdown_json": row.get("class_breakdown_json")
+        or json.dumps(class_breakdown, ensure_ascii=False, sort_keys=True),
         "images_in_round": row.get("images_in_round", 1),
         "aggregation_mode": row.get("aggregation_mode", "single_image"),
         "image_blob_name": row.get("image_blob_name"),
@@ -782,9 +899,7 @@ def _build_daily_aphid_trend(rows: list[dict[str, Any]]) -> dict[str, Any]:
         parsed_ts = row.get("_parsed_ts")
         if not isinstance(parsed_ts, datetime):
             continue
-        count_value = _coerce_float(row.get("count"))
-        if count_value is None:
-            continue
+        count_value = float(_extract_aphid_count_from_row(row))
         bucket_key = parsed_ts.date().isoformat()
         buckets.setdefault(bucket_key, []).append(float(count_value))
 
@@ -1015,8 +1130,8 @@ def _summarize_recent_aphid_counts(device_id: str, days: int, now_utc: datetime)
         warnings.append(f"No aphid count rows were found for '{device_id}' in the last {days * 2} days.")
 
     current_rows, previous_rows = _split_rows_by_window(rows, current_start, now_utc)
-    current_counts = [v for v in (_coerce_float(r.get("count")) for r in current_rows) if v is not None]
-    previous_counts = [v for v in (_coerce_float(r.get("count")) for r in previous_rows) if v is not None]
+    current_counts = [float(_extract_aphid_count_from_row(r)) for r in current_rows]
+    previous_counts = [float(_extract_aphid_count_from_row(r)) for r in previous_rows]
     current_days = sorted({r["_parsed_ts"].date().isoformat() for r in current_rows if isinstance(r.get("_parsed_ts"), datetime)})
     previous_days = sorted({r["_parsed_ts"].date().isoformat() for r in previous_rows if isinstance(r.get("_parsed_ts"), datetime)})
 
@@ -1464,6 +1579,7 @@ async def predict(
                 }
             )
 
+    detection_summary = _summarize_detection_classes(detections)
     normalized_device_id = device_id.strip()
     request_id = f"{_utc_stamp()}_{uuid.uuid4().hex[:10]}"
     safe_name = _safe_filename(image.filename)
@@ -1488,7 +1604,12 @@ async def predict(
         "timestamp_utc": ts_now.isoformat(),
         "filename": image.filename,
         "device_id": normalized_device_id,
-        "count": len(detections),
+        "count": detection_summary["count"],
+        "count_mean": detection_summary["count_mean"],
+        "aphid_count": detection_summary["aphid_count"],
+        "slug_count": detection_summary["slug_count"],
+        "total_count": detection_summary["total_count"],
+        "class_breakdown": detection_summary["class_breakdown"],
         "detections": detections,
         "query": {
             "conf": float(conf),
@@ -1523,8 +1644,12 @@ async def predict(
             "round_id": request_id,
             "ts": ts_now.isoformat(),
             "filename": image.filename,
-            "count": len(detections),
-            "count_mean": float(len(detections)),
+            "count": detection_summary["count"],
+            "count_mean": detection_summary["count_mean"],
+            "aphid_count": detection_summary["aphid_count"],
+            "slug_count": detection_summary["slug_count"],
+            "total_count": detection_summary["total_count"],
+            "class_breakdown_json": detection_summary["class_breakdown_json"],
             "images_in_round": 1,
             "aggregation_mode": "single_image",
             "image_blob_name": image_blob_name if image_url else None,
@@ -1549,7 +1674,12 @@ async def predict(
         "request_id": request_id,
         "filename": image.filename,
         "device_id": normalized_device_id,
-        "count": len(detections),
+        "count": detection_summary["count"],
+        "count_mean": detection_summary["count_mean"],
+        "aphid_count": detection_summary["aphid_count"],
+        "slug_count": detection_summary["slug_count"],
+        "total_count": detection_summary["total_count"],
+        "class_breakdown": detection_summary["class_breakdown"],
         "detections": detections,
         "blob_saved": storage_error is None,
         "history_saved": history_error is None,
@@ -1557,7 +1687,6 @@ async def predict(
         "aphid_count_partition": aphid_partition,
         "images_in_round": 1,
         "aggregation_mode": "single_image",
-        "count_mean": float(len(detections)),
     }
     if image_url:
         response["image_blob_name"] = image_blob_name

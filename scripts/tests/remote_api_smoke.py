@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import requests
+from PIL import Image
 
 
 @dataclass
@@ -60,6 +62,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Exit non-zero if any check fails.",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Per-request timeout in seconds.",
+    )
     return parser.parse_args()
 
 
@@ -84,6 +92,20 @@ def safe_json(resp: requests.Response) -> dict[str, Any] | None:
         return None
 
 
+def ensure_sample_image(sample_image: Path) -> tuple[Path, bool]:
+    """Return an existing sample image or create a tiny temporary fallback JPEG."""
+
+    if sample_image.exists():
+        return sample_image, False
+
+    tmp = tempfile.NamedTemporaryFile(prefix="codex_remote_smoke_", suffix=".jpg", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    img = Image.new("RGB", (96, 96), color=(120, 190, 80))
+    img.save(tmp_path, format="JPEG")
+    return tmp_path, True
+
+
 def expect_status(checks: list[CheckResult], name: str, actual: int, allowed: set[int]) -> None:
     """Record status-code assertion with allowed status set."""
 
@@ -102,8 +124,10 @@ def main() -> int:
     args = parse_args()
     base = args.base_url.rstrip("/")
     sample_image = Path(args.sample_image).resolve()
+    sample_image, generated_sample_image = ensure_sample_image(sample_image)
     history_allowed = parse_allowed(args.expect_history_status)
     telemetry_allowed = parse_allowed(args.expect_telemetry_status)
+    timeout = max(5, int(args.timeout))
 
     headers = {}
     if args.iot_api_key:
@@ -113,7 +137,7 @@ def main() -> int:
     report: dict[str, Any] = {"responses": {}, "checks": []}
 
     # 1) health
-    r = requests.get(f"{base}/health", timeout=30)
+    r = requests.get(f"{base}/health", timeout=timeout)
     j = safe_json(r)
     report["responses"]["health"] = {"status_code": r.status_code, "json": j}
     expect_status(checks, "health_status", r.status_code, {200})
@@ -121,8 +145,8 @@ def main() -> int:
         checks.append(CheckResult("health_ok_flag", j.get("status") == "ok", f"status={j.get('status')}"))
 
     # 2) dashboards
-    for p in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard"]:
-        rr = requests.get(f"{base}{p}", timeout=30)
+    for p in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard", "/forecast/dashboard"]:
+        rr = requests.get(f"{base}{p}", timeout=timeout)
         report["responses"][p] = {"status_code": rr.status_code}
         expect_status(checks, f"{p}_status", rr.status_code, {200})
 
@@ -137,7 +161,7 @@ def main() -> int:
         "apps_so_far": 0,
         "respect_compliance_gate": True,
     }
-    rr = requests.post(f"{base}/decision/weekly", json=payload, timeout=30)
+    rr = requests.post(f"{base}/decision/weekly", json=payload, timeout=timeout)
     jj = safe_json(rr)
     report["responses"]["decision_weekly"] = {"status_code": rr.status_code, "json": jj}
     expect_status(checks, "decision_weekly_status", rr.status_code, {200})
@@ -145,39 +169,65 @@ def main() -> int:
         checks.append(CheckResult("decision_has_scope", "scope_class" in jj, f"scope_class={jj.get('scope_class')}"))
 
     # 4) predict valid/invalid
-    if sample_image.exists():
-        with sample_image.open("rb") as f:
-            rr = requests.post(
-                f"{base}/predict?device_id=smoke-test-001",
-                files={"image": (sample_image.name, f, "image/jpeg")},
-                timeout=60,
+    with sample_image.open("rb") as f:
+        rr = requests.post(
+            f"{base}/predict?device_id=smoke-test-001",
+            files={"image": (sample_image.name, f, "image/jpeg")},
+            timeout=timeout,
+        )
+    jj = safe_json(rr)
+    report["responses"]["predict_valid"] = {
+        "status_code": rr.status_code,
+        "json": jj,
+        "generated_sample_image": generated_sample_image,
+    }
+    expect_status(checks, "predict_valid_status", rr.status_code, {200})
+    if isinstance(jj, dict):
+        checks.append(CheckResult("predict_has_count", isinstance(jj.get("count"), int), f"count={jj.get('count')}"))
+        checks.append(
+            CheckResult("predict_has_aphid_count", isinstance(jj.get("aphid_count"), int), f"aphid_count={jj.get('aphid_count')}")
+        )
+        checks.append(
+            CheckResult("predict_has_slug_count", isinstance(jj.get("slug_count"), int), f"slug_count={jj.get('slug_count')}")
+        )
+        checks.append(
+            CheckResult("predict_has_total_count", isinstance(jj.get("total_count"), int), f"total_count={jj.get('total_count')}")
+        )
+        checks.append(
+            CheckResult(
+                "predict_has_class_breakdown",
+                isinstance(jj.get("class_breakdown"), dict),
+                f"class_breakdown_type={type(jj.get('class_breakdown')).__name__}",
             )
-        jj = safe_json(rr)
-        report["responses"]["predict_valid"] = {"status_code": rr.status_code, "json": jj}
-        expect_status(checks, "predict_valid_status", rr.status_code, {200})
-    else:
-        checks.append(CheckResult("predict_valid_status", False, f"missing sample image: {sample_image}"))
+        )
+        checks.append(
+            CheckResult(
+                "predict_count_tracks_aphid_count",
+                jj.get("count") == jj.get("aphid_count"),
+                f"count={jj.get('count')}, aphid_count={jj.get('aphid_count')}",
+            )
+        )
 
     rr = requests.post(
         f"{base}/predict?device_id=smoke-test-001",
         files={"image": ("bad.txt", b"not an image", "text/plain")},
-        timeout=30,
+        timeout=timeout,
     )
     report["responses"]["predict_invalid"] = {"status_code": rr.status_code, "json": safe_json(rr)}
     expect_status(checks, "predict_invalid_status", rr.status_code, {400})
 
     # 5) history
-    rr = requests.get(f"{base}/history?limit=5", timeout=30)
+    rr = requests.get(f"{base}/history?limit=5", timeout=timeout)
     report["responses"]["history"] = {"status_code": rr.status_code, "json": safe_json(rr)}
     expect_status(checks, "history_status", rr.status_code, history_allowed)
 
     # 6) telemetry
     telemetry_payload = {"device_id": "pi-001", "temperature": 23.5, "humidity": 60.2, "light": 300}
-    rr = requests.post(f"{base}/telemetry", json=telemetry_payload, headers=headers, timeout=30)
+    rr = requests.post(f"{base}/telemetry", json=telemetry_payload, headers=headers, timeout=timeout)
     report["responses"]["telemetry_post"] = {"status_code": rr.status_code, "json": safe_json(rr)}
     expect_status(checks, "telemetry_post_status", rr.status_code, telemetry_allowed)
 
-    rr = requests.get(f"{base}/telemetry/latest?device_id=pi-001&limit=5", headers=headers, timeout=30)
+    rr = requests.get(f"{base}/telemetry/latest?device_id=pi-001&limit=5", headers=headers, timeout=timeout)
     report["responses"]["telemetry_latest"] = {"status_code": rr.status_code, "json": safe_json(rr)}
     expect_status(checks, "telemetry_latest_status", rr.status_code, telemetry_allowed)
 

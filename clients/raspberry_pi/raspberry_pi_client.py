@@ -47,13 +47,13 @@ def capture_image(camera_index: int = 0, save_path: str = "capture.jpg") -> Path
     return out
 
 
-def send_for_inference(image_path: Path, api_url: str, conf: float, timeout: int) -> dict | None:
+def send_for_inference(image_path: Path, api_url: str, device_id: str, conf: float, timeout: int) -> dict | None:
     """Upload captured image to /predict and return parsed JSON response."""
 
     try:
         with image_path.open("rb") as f:
             files = {"image": (image_path.name, f, "image/jpeg")}
-            params = {"conf": conf}
+            params = {"conf": conf, "device_id": device_id}
             response = requests.post(api_url, files=files, params=params, timeout=timeout)
         response.raise_for_status()
         return response.json()
@@ -68,8 +68,9 @@ def send_for_inference(image_path: Path, api_url: str, conf: float, timeout: int
 def main() -> None:
     """CLI entrypoint for one-shot or periodic capture/inference loop."""
 
-    parser = argparse.ArgumentParser(description="Raspberry Pi camera client for YOLO aphid detection.")
+    parser = argparse.ArgumentParser(description="Raspberry Pi camera client for YOLO insect detection.")
     parser.add_argument("--url", required=True, help="Container App base URL or /predict URL.")
+    parser.add_argument("--device-id", required=True, help="Device ID sent to /predict for history/count storage.")
     parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")
     parser.add_argument("--interval", type=int, default=0, help="Seconds between captures. 0 means single shot.")
     parser.add_argument("--conf", type=float, default=DEFAULT_CONFIDENCE, help="Confidence threshold.")
@@ -84,10 +85,20 @@ def main() -> None:
         image_path = capture_image(camera_index=args.camera, save_path=args.output)
         if image_path is not None:
             print(f"[{datetime.now().isoformat(timespec='seconds')}] Captured: {image_path}")
-            result = send_for_inference(image_path=image_path, api_url=api_url, conf=args.conf, timeout=args.timeout)
+            result = send_for_inference(
+                image_path=image_path,
+                api_url=api_url,
+                device_id=args.device_id,
+                conf=args.conf,
+                timeout=args.timeout,
+            )
             if result is not None:
-                count = result.get("count", 0)
-                print(f"Detected aphids: {count}")
+                aphid_count = result.get("aphid_count", result.get("count", 0))
+                slug_count = result.get("slug_count", 0)
+                total_count = result.get("total_count", aphid_count + slug_count)
+                print(f"Detected aphids: {aphid_count}")
+                print(f"Detected slugs: {slug_count}")
+                print(f"Total detections: {total_count}")
                 print(json.dumps(result, indent=2, ensure_ascii=False))
 
         if args.interval <= 0:

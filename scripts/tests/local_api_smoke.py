@@ -7,11 +7,13 @@ import importlib
 import json
 import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 
 @dataclass
@@ -94,6 +96,20 @@ def _resolve_dashboard_file(app_dir: Path, filename: str) -> Path:
     return in_container_context
 
 
+def _ensure_sample_image(sample_image: Path) -> tuple[Path, bool]:
+    """Return an existing sample image or create a small temporary fallback JPEG."""
+
+    if sample_image.exists():
+        return sample_image, False
+
+    tmp = tempfile.NamedTemporaryFile(prefix="codex_smoke_", suffix=".jpg", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    img = Image.new("RGB", (96, 96), color=(120, 190, 80))
+    img.save(tmp_path, format="JPEG")
+    return tmp_path, True
+
+
 def _expect_status(
     checks: list[CheckResult],
     name: str,
@@ -119,6 +135,7 @@ def main() -> int:
     app_dir = Path(args.app_dir).resolve()
     model_dir = app_dir / "model"
     sample_image = Path(args.sample_image).resolve()
+    sample_image, generated_sample_image = _ensure_sample_image(sample_image)
 
     # Force local model paths so import does not require /app bind mount.
     os.environ.setdefault("MODEL_PATH", str((model_dir / "best.pt").resolve()))
@@ -132,6 +149,7 @@ def main() -> int:
     module.TELEMETRY_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "telemetry_dashboard.html").resolve())
     module.HISTORY_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "history_records.html").resolve())
     module.DECISION_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "decision_dashboard.html").resolve())
+    module.FORECAST_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "forecast_dashboard.html").resolve())
 
     client = TestClient(module.app)
     checks: list[CheckResult] = []
@@ -153,7 +171,7 @@ def main() -> int:
         )
 
     # 2) Dashboards
-    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard"]:
+    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard", "/forecast/dashboard"]:
         rr = client.get(path)
         report["responses"][path] = {"status_code": rr.status_code}
         _expect_status(checks, f"{path}_status", rr.status_code, 200)
@@ -214,22 +232,66 @@ def main() -> int:
         )
 
     # 5) Predict valid
-    if sample_image.exists():
-        with sample_image.open("rb") as f:
-            rr = client.post("/predict?device_id=smoke-test-001", files={"image": (sample_image.name, f, "image/jpeg")})
-        jj = _safe_json(rr)
-        report["responses"]["predict_valid"] = {"status_code": rr.status_code, "json": jj}
-        _expect_status(checks, "predict_valid_status", rr.status_code, 200)
-        if isinstance(jj, dict):
-            checks.append(CheckResult("predict_has_count", isinstance(jj.get("count"), int), f"count={jj.get('count')}"))
-    else:
-        checks.append(CheckResult("predict_valid_skipped", False, f"sample image not found: {sample_image}"))
+    with sample_image.open("rb") as f:
+        rr = client.post("/predict?device_id=smoke-test-001", files={"image": (sample_image.name, f, "image/jpeg")})
+    jj = _safe_json(rr)
+    report["responses"]["predict_valid"] = {
+        "status_code": rr.status_code,
+        "json": jj,
+        "generated_sample_image": generated_sample_image,
+    }
+    _expect_status(checks, "predict_valid_status", rr.status_code, 200)
+    if isinstance(jj, dict):
+        checks.append(CheckResult("predict_has_count", isinstance(jj.get("count"), int), f"count={jj.get('count')}"))
+        checks.append(
+            CheckResult("predict_has_aphid_count", isinstance(jj.get("aphid_count"), int), f"aphid_count={jj.get('aphid_count')}")
+        )
+        checks.append(
+            CheckResult("predict_has_slug_count", isinstance(jj.get("slug_count"), int), f"slug_count={jj.get('slug_count')}")
+        )
+        checks.append(
+            CheckResult("predict_has_total_count", isinstance(jj.get("total_count"), int), f"total_count={jj.get('total_count')}")
+        )
+        checks.append(
+            CheckResult(
+                "predict_has_class_breakdown",
+                isinstance(jj.get("class_breakdown"), dict),
+                f"class_breakdown_type={type(jj.get('class_breakdown')).__name__}",
+            )
+        )
+        checks.append(
+            CheckResult(
+                "predict_count_tracks_aphid_count",
+                jj.get("count") == jj.get("aphid_count"),
+                f"count={jj.get('count')}, aphid_count={jj.get('aphid_count')}",
+            )
+        )
 
     # 6) Predict invalid
     rr = client.post("/predict?device_id=smoke-test-001", files={"image": ("bad.txt", b"not an image", "text/plain")})
     jj = _safe_json(rr)
     report["responses"]["predict_invalid"] = {"status_code": rr.status_code, "json": jj}
     _expect_status(checks, "predict_invalid_status", rr.status_code, 400)
+
+    # 6.5) Mixed-class aggregation helper
+    synthetic = module._summarize_detection_classes(  # type: ignore[attr-defined]
+        [
+            {"class_name": "aphid"},
+            {"class_name": "slug"},
+            {"class_name": "aphid"},
+        ]
+    )
+    report["responses"]["predict_mixed_class_summary"] = synthetic
+    checks.append(
+        CheckResult(
+            "predict_mixed_class_summary",
+            synthetic.get("aphid_count") == 2
+            and synthetic.get("slug_count") == 1
+            and synthetic.get("total_count") == 3
+            and synthetic.get("count") == 2,
+            json.dumps(synthetic, ensure_ascii=False),
+        )
+    )
 
     # 7) History / telemetry behavior depends on Azure env config
     azure_blob_configured = bool(os.getenv("BLOB_CONNECTION_STRING", ""))
