@@ -1,4 +1,19 @@
-# Aphid + Slug 双类模型接入方案
+# Aphid + Slug 双类模型接入报告
+
+## 实施状态
+
+这份文档最初是接入方案，现在作为实施报告和决策记录保留。
+
+当前状态：
+
+- Phase 1 后端双类字段已经落地。
+- Phase 2 页面与 Grafana 文档已经切到双类口径。
+- `/predict` 会返回 `aphid_count`、`slug_count`、`total_count`、`class_breakdown`。
+- `count = aphid_count` 继续保留，用来兼容旧接口、旧图表和旧测试。
+- forecast / trend / decision 仍然只使用 `aphid_count`，不会把 slug 混入喷药决策。
+- 当前单次请求按单张图片记录：`images_in_round = 1`，`aggregation_mode = single_image`。
+
+下面保留原方案内容，作为为什么这样接入的背景说明。
 
 这份文档回答一个很实际的问题：
 

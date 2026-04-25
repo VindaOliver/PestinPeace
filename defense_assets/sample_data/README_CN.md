@@ -195,6 +195,9 @@
 
 - `telemetry` 数据是平稳变化的，没有刻意插入异常值
 - `aphid count` 数据整体呈现从 `3 月下旬` 到 `4 月下旬` 逐步升高的趋势
+- `slug count` 是低频少量出现的辅助监测数据，不参与当前 forecast / decision 主线
+- `count` 和 `count_mean` 继续等于 `aphid_count`，用于兼容旧接口和旧图表
+- `total_count` 等于 `aphid_count + slug_count`，用于展示双类总检测量
 - `decision history` 与虫量上升趋势基本一致，前期以不喷药为主，后期逐步出现建议喷药和已喷药记录
 
 这更适合用于：
@@ -203,3 +206,27 @@
 - API 接口测试
 - 决策历史展示
 - 答辩展示
+
+## 当前演示数据生成规则
+
+这批数据针对演示设备 `demo-trap-001` 生成，时间范围约为 `2026-03-21` 到 `2026-04-21`。
+
+生成逻辑如下：
+
+- `telemetry` 沿用已有环境样本，每天大约 2 次记录，`2026-04-21` 有额外几条真实时间点样本。
+- `aphid_count` 使用平滑上升趋势生成，范围约为 `2` 到 `16`，模拟春季虫压逐步增加。
+- `slug_count` 作为新增监测类别，只在部分日期少量出现，范围为 `0` 到 `2`。
+- `total_count = aphid_count + slug_count`。
+- `class_breakdown_json` 是 Azure Table 中的字符串字段，内容类似 `{"aphid": 15, "slug": 1}`。
+- `images_in_round = 1`，`aggregation_mode = single_image`，表示当前系统按单张图片识别记录。
+- `decisionhistory` 记录和虫压上升保持一致：前期不喷药，后期出现 boundary band 或 full field 的喷药记录。
+
+重新生成并写入 Azure 的脚本是：
+
+```powershell
+python scripts\seed_demo_tables.py --device-id demo-trap-001 --write-azure --reset
+```
+
+实际运行时需要先提供 `AZURE_STORAGE_CONNECTION_STRING`，或者在命令中传入 `--connection-string`。
+
+脚本默认只允许写入 `demo-` 开头的设备 ID，避免误删真实设备数据。如果确实要写入非演示设备，需要显式加 `--allow-prod`。
