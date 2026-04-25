@@ -288,6 +288,36 @@
       background: #fff;
     }
 
+    .result-summary {
+      display: none;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .summary-card {
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 12px 14px;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .summary-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
     /* ── Status ── */
     .status {
       margin-top: 12px;
@@ -330,6 +360,10 @@
         grid-template-columns: 1fr;
       }
 
+      .result-summary {
+        grid-template-columns: 1fr;
+      }
+
       body {
         padding: 16px 12px;
       }
@@ -357,8 +391,8 @@
       <a id="decisionNav" class="nav-btn" href="#">Decision</a>
     </div>
 
-    <h1>Aphid 云端识别客户端</h1>
-    <div class="subtitle">上传图片到 Azure <code>/predict</code> 接口，返回 JSON 结果并绘制检测框图片。</div>
+    <h1>Aphid + Slug 云端识别客户端</h1>
+    <div class="subtitle">上传图片到 Azure <code>/predict</code> 接口，返回双类识别结果，并展示 aphid / slug / total 统计。</div>
 
     <!-- Predict request form -->
     <div class="grid">
@@ -403,6 +437,20 @@
     <div class="result-img-box">
       <div class="result-img-title">检测框结果图</div>
       <canvas id="resultCanvas"></canvas>
+      <div id="resultSummary" class="result-summary">
+        <div class="summary-card">
+          <div class="summary-label">Aphid Count</div>
+          <div id="aphidCountValue" class="summary-value">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Slug Count</div>
+          <div id="slugCountValue" class="summary-value">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Total Detections</div>
+          <div id="totalCountValue" class="summary-value">0</div>
+        </div>
+      </div>
     </div>
 
     <div id="status" class="status"></div>
@@ -423,6 +471,10 @@
     const statusEl = document.getElementById("status");
     const resultEl = document.getElementById("result");
     const resultCanvas = document.getElementById("resultCanvas");
+    const resultSummary = document.getElementById("resultSummary");
+    const aphidCountValue = document.getElementById("aphidCountValue");
+    const slugCountValue = document.getElementById("slugCountValue");
+    const totalCountValue = document.getElementById("totalCountValue");
     const telemetryNav = document.getElementById("telemetryNav");
     const historyNav = document.getElementById("historyNav");
     const decisionNav = document.getElementById("decisionNav");
@@ -455,6 +507,11 @@
     function setStatus(text, isError = false) {
       statusEl.textContent = text;
       statusEl.className = isError ? "status error" : "status";
+    }
+
+    function asDisplayCount(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
     }
 
     // Rendering helpers for annotated bounding-box preview.
@@ -558,6 +615,7 @@
         setStatus("正在上传并推理...");
         resultEl.value = "";
         resultCanvas.style.display = "none";
+        resultSummary.style.display = "none";
 
         const formData = new FormData();
         formData.append("image", file, file.name);
@@ -575,7 +633,14 @@
         const data = await res.json();
         resultEl.value = JSON.stringify(data, null, 2);
         await renderImageWithBoxes(file, data.detections || []);
-        setStatus(`推理成功，检测数量: ${data.count}`);
+        const aphidCount = asDisplayCount(data.aphid_count, asDisplayCount(data.count, 0));
+        const slugCount = asDisplayCount(data.slug_count, 0);
+        const totalCount = asDisplayCount(data.total_count, aphidCount + slugCount);
+        aphidCountValue.textContent = String(aphidCount);
+        slugCountValue.textContent = String(slugCount);
+        totalCountValue.textContent = String(totalCount);
+        resultSummary.style.display = "grid";
+        setStatus(`推理成功：aphid=${aphidCount}，slug=${slugCount}，total=${totalCount}`);
       } catch (err) {
         setStatus(`调用失败: ${err.message}`, true);
       }

@@ -1,10 +1,10 @@
 # 当前系统状态与测试结论
 
-这份文档用来回答 3 个最实际的问题：
+这份文档回答 3 个最实际的问题：
 
 1. 现在系统部署在哪里
 2. 现在系统哪些功能已经可用
-3. 最近一次优化和测试做到什么程度
+3. 最近一轮优化和测试做到什么程度
 
 ## 1. 当前运行环境
 
@@ -28,10 +28,14 @@
 - `POST /predict`
 - 现在 `device_id` 是必填
 - 单次识别按单张图片模式记录
-- 返回：
+- 现在已经支持双类统计返回：
+  - `aphid_count`
+  - `slug_count`
+  - `total_count`
   - `count`
-  - `detections`
   - `count_mean`
+  - `class_breakdown`
+  - `detections`
   - `images_in_round`
   - `aggregation_mode`
 
@@ -65,8 +69,12 @@
 当前虫量接口支持：
 
 - `round_id`
+- `aphid_count`
+- `slug_count`
+- `total_count`
 - `count`
 - `count_mean`
+- `class_breakdown`
 - `images_in_round`
 - `aggregation_mode`
 
@@ -103,15 +111,20 @@
 
 `Grafana -> API -> Azure Table`
 
-也就是说：
+主链路查询：
 
-- 不再用旧的 Log Analytics 业务同步方案做主链路
-- Grafana 主要查：
-  - `/grafana/telemetry`
-  - `/grafana/aphidcounts`
-  - `/grafana/decisionhistory`
+- `/grafana/telemetry`
+- `/grafana/aphidcounts`
+- `/grafana/decisionhistory`
 
-## 5. 最近一次高优先级优化
+双类语义现在是：
+
+- `aphid_count`：给 trend / forecast / decision 主线使用
+- `slug_count`：独立监测使用
+- `total_count`：总检测量展示
+- `count`：兼容字段，当前等于 `aphid_count`
+
+## 5. 最近一轮高优先级优化
 
 为了让系统更稳，这一轮已经完成这些修复：
 
@@ -126,20 +139,26 @@
 9. 增加了模型加载守卫
 10. `/history` 单条 blob 读取失败时会记录 warning
 11. 重试退避改成了指数退避
+12. `Phase 1` 双类接入已经完成：
+   - `/predict` 分类聚合
+   - `aphidcounts` 表双类字段写入
+   - 旧数据兼容读取
+   - `predict/trend` 改成 aphid 主线
+   - Raspberry Pi 客户端双类输出
 
-## 6. 最近一次测试结果
+## 6. 最近一轮测试结果
 
 ### 本地测试
 
 本地 smoke test：
 
-- `20/20` 通过
+- `27/27` 通过
 
 ### 线上测试
 
 远程 smoke test：
 
-- `13/13` 通过
+- `20/20` 通过
 
 关键线上行为确认：
 
@@ -149,16 +168,22 @@
 - `/predict?conf=-1`：`422`
 - `/predict?imgsz=99999`：`422`
 - 正常图片识别：`200`
+- `/predict` 响应里已经能返回：
+  - `aphid_count`
+  - `slug_count`
+  - `total_count`
+  - `class_breakdown`
 
-## 7. GitHub 与 Azure 自动部署状态
+## 7. GitHub -> Azure 自动部署状态
 
 当前 `main` 分支 push 后会自动部署到 Azure。
 
-最近几次成功运行包括：
+最近成功运行包括：
 
 - `24759555774`
 - `24759829225`
 - `24760621732`
+- `24924027099`
 
 说明：
 
@@ -180,13 +205,14 @@
 
 当前还值得继续做，但不会阻塞答辩的点主要有：
 
-1. `/history` 逐个 blob 下载也可以再加重试
-2. 真实生产环境里可以收紧 CORS 配置
-3. 如果后面长期运行，可以再统一错误响应格式
+1. `/history` 逐个 blob 下载可以再加一层 retry
+2. 真实生产环境里可以继续收紧 CORS 配置
+3. 前端页面还可以进一步强化双类可视化
+4. GitHub Actions 里 Node 20 相关 action 后续值得升级
 
 ## 10. 给队友的一句话版本
 
-当前系统已经稳定切到 PAYG，主链路可用，自动部署可用，Grafana 现在通过 API 读取业务数据，答辩和演示使用没有问题。
+当前系统已经稳定切到 PAYG，主链路可用，自动部署可用，Grafana 通过 API 读取业务数据，双类识别已经接入 API 主线，答辩和演示使用没有问题。
 
 ## 11. 答辩材料放在哪里
 

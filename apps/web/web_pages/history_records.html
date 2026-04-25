@@ -331,6 +331,22 @@
       line-height: 1.4;
     }
 
+    .record-counts {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .record-count.alt {
+      background: linear-gradient(135deg, #64748b, #475569);
+      box-shadow: 0 2px 8px rgba(71, 85, 105, 0.2);
+    }
+
+    .record-count.total {
+      background: linear-gradient(135deg, #0f766e, #0d9488);
+    }
+
     .record-meta {
       display: flex;
       flex-direction: column;
@@ -468,7 +484,7 @@
 
     <!-- History count trend line chart -->
     <div class="chart-box">
-      <div class="chart-title">检测数量趋势（Count Trend）</div>
+      <div class="chart-title">检测数量趋势（Aphid / Slug / Total）</div>
       <canvas id="countTrendChart" height="100"></canvas>
     </div>
 
@@ -523,7 +539,13 @@
         const time = r.timestamp_utc || r.history_last_modified_utc || "";
         const req = r.request_id || "";
         const fname = r.filename || "";
-        const count = Number.isFinite(Number(r.count)) ? Number(r.count) : "-";
+        const aphidCount = Number.isFinite(Number(r.aphid_count))
+          ? Number(r.aphid_count)
+          : (Number.isFinite(Number(r.count)) ? Number(r.count) : "-");
+        const slugCount = Number.isFinite(Number(r.slug_count)) ? Number(r.slug_count) : 0;
+        const totalCount = Number.isFinite(Number(r.total_count))
+          ? Number(r.total_count)
+          : ((Number.isFinite(Number(aphidCount)) ? Number(aphidCount) : 0) + slugCount);
 
         let linksHtml = '';
         const imageUrl = r.image_view_url || r.image_blob_url;
@@ -538,7 +560,11 @@
         card.innerHTML = `
           <div class="record-header">
             <span class="record-time">${time}</span>
-            <span class="record-count">${count}</span>
+            <div class="record-counts">
+              <span class="record-count">A ${aphidCount}</span>
+              <span class="record-count alt">S ${slugCount}</span>
+              <span class="record-count total">T ${totalCount}</span>
+            </div>
           </div>
           <div class="record-meta">
             <div class="record-row">
@@ -548,6 +574,18 @@
             <div class="record-row">
               <span class="record-label">请求 ID</span>
               <span class="record-value">${req || '-'}</span>
+            </div>
+            <div class="record-row">
+              <span class="record-label">Aphid</span>
+              <span class="record-value">${aphidCount}</span>
+            </div>
+            <div class="record-row">
+              <span class="record-label">Slug</span>
+              <span class="record-value">${slugCount}</span>
+            </div>
+            <div class="record-row">
+              <span class="record-label">Total</span>
+              <span class="record-value">${totalCount}</span>
             </div>
           </div>
           ${linksHtml ? `<div class="record-links">${linksHtml}</div>` : ''}
@@ -567,9 +605,20 @@
     function renderCountTrend(records) {
       const ordered = (records || []).slice().reverse();
       const labels = ordered.map(r => formatTimeLabel(r.timestamp_utc || r.history_last_modified_utc));
-      const values = ordered.map(r => {
-        const n = Number(r.count);
+      const aphidValues = ordered.map(r => {
+        const n = Number(r.aphid_count);
+        if (Number.isFinite(n)) return n;
+        const legacy = Number(r.count);
+        return Number.isFinite(legacy) ? legacy : 0;
+      });
+      const slugValues = ordered.map(r => {
+        const n = Number(r.slug_count);
         return Number.isFinite(n) ? n : 0;
+      });
+      const totalValues = ordered.map((r, idx) => {
+        const n = Number(r.total_count);
+        if (Number.isFinite(n)) return n;
+        return aphidValues[idx] + slugValues[idx];
       });
 
       if (!trendChart) {
@@ -577,22 +626,44 @@
           type: "line",
           data: {
             labels,
-            datasets: [{
-              label: "count",
-              data: values,
-              borderColor: "#0d9488",
-              backgroundColor: "rgba(13, 148, 136, 0.12)",
-              fill: true,
-              tension: 0.35,
-              pointRadius: 2,
-              borderWidth: 2.5
-            }]
+            datasets: [
+              {
+                label: "aphid_count",
+                data: aphidValues,
+                borderColor: "#0d9488",
+                backgroundColor: "rgba(13, 148, 136, 0.12)",
+                fill: false,
+                tension: 0.35,
+                pointRadius: 2,
+                borderWidth: 2.5
+              },
+              {
+                label: "slug_count",
+                data: slugValues,
+                borderColor: "#64748b",
+                backgroundColor: "rgba(100, 116, 139, 0.12)",
+                fill: false,
+                tension: 0.35,
+                pointRadius: 2,
+                borderWidth: 2.5
+              },
+              {
+                label: "total_count",
+                data: totalValues,
+                borderColor: "#f59e0b",
+                backgroundColor: "rgba(245, 158, 11, 0.12)",
+                fill: false,
+                tension: 0.35,
+                pointRadius: 2,
+                borderWidth: 2.5
+              }
+            ]
           },
           options: {
             responsive: true,
             animation: false,
             plugins: {
-              legend: { display: false },
+              legend: { display: true },
               tooltip: {
                 backgroundColor: "rgba(15, 23, 42, 0.85)",
                 titleFont: { family: "Inter" },
@@ -618,7 +689,9 @@
       }
 
       trendChart.data.labels = labels;
-      trendChart.data.datasets[0].data = values;
+      trendChart.data.datasets[0].data = aphidValues;
+      trendChart.data.datasets[1].data = slugValues;
+      trendChart.data.datasets[2].data = totalValues;
       trendChart.update();
     }
 
