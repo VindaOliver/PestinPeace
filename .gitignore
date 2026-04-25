@@ -17,9 +17,6 @@ Thumbs.db
 # Training datasets and outputs
 data/
 runs/
-ml/yolo/train_yolo26.py
-ml/yolo/continue_train_yolo26.py
-ml/yolo/data.yaml
 ml/yolo/yolo26n.pt
 ml/yolo/runs/
 build/

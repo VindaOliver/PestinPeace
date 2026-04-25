@@ -1,23 +1,23 @@
-# Continue Training Report
+# Training Report
 
-- Generated at: 2026-03-20T23:00:12.322864+00:00
-- Run dir: C:\Users\Amour\Desktop\UCL IoT\design sensor system\archive (2)\runs\train\yolo26_aphids_tf_env_gpu_full
+- Generated at: 2026-04-25T05:04:49.294481+00:00
+- Run dir: C:\Users\Amour\Desktop\UCL IoT\trip\6e723\aphid-slug-yolo26\runs\train\yolo26_aphid_slug_baseline_960
 - Device: CUDA:0 (NVIDIA GeForce RTX 4060 Laptop GPU)
 - CUDA available: True
 
 ## Dataset
-- Train images: 1710
-- Train labels: 1710
-- Validation images: 179
-- Validation labels: 179
-- Test images: 76
-- Test labels: 76
+- Train images: 2532
+- Train labels: 2532
+- Validation images: 235
+- Validation labels: 235
+- Test images: 116
+- Test labels: 116
 
 ## Training Summary
 - Target epochs: 100
-- Epochs recorded: 100
-- Early stopped: False
-- Best epoch number: 88
+- Epochs recorded: 83
+- Early stopped: True
+- Best epoch number: 53
 - Best metric: metrics/mAP50-95(B)
 
 ## Key Files

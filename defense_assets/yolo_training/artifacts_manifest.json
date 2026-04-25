@@ -1,0 +1,194 @@
+{
+  "run_dir": "C:\\Users\\Amour\\Desktop\\UCL IoT\\trip\\6e723\\aphid-slug-yolo26\\runs\\train\\yolo26_aphid_slug_baseline_960",
+  "file_count": 47,
+  "files": [
+    {
+      "path": "args.yaml",
+      "bytes": 1946
+    },
+    {
+      "path": "best_val\\BoxF1_curve.png",
+      "bytes": 158204
+    },
+    {
+      "path": "best_val\\BoxP_curve.png",
+      "bytes": 125453
+    },
+    {
+      "path": "best_val\\BoxPR_curve.png",
+      "bytes": 123278
+    },
+    {
+      "path": "best_val\\BoxR_curve.png",
+      "bytes": 149302
+    },
+    {
+      "path": "best_val\\confusion_matrix.png",
+      "bytes": 115035
+    },
+    {
+      "path": "best_val\\confusion_matrix_normalized.png",
+      "bytes": 111223
+    },
+    {
+      "path": "best_val\\val_batch0_labels.jpg",
+      "bytes": 95682
+    },
+    {
+      "path": "best_val\\val_batch0_pred.jpg",
+      "bytes": 96236
+    },
+    {
+      "path": "best_val\\val_batch1_labels.jpg",
+      "bytes": 75235
+    },
+    {
+      "path": "best_val\\val_batch1_pred.jpg",
+      "bytes": 78754
+    },
+    {
+      "path": "best_val\\val_batch2_labels.jpg",
+      "bytes": 96863
+    },
+    {
+      "path": "best_val\\val_batch2_pred.jpg",
+      "bytes": 107466
+    },
+    {
+      "path": "BoxF1_curve.png",
+      "bytes": 157463
+    },
+    {
+      "path": "BoxP_curve.png",
+      "bytes": 125386
+    },
+    {
+      "path": "BoxPR_curve.png",
+      "bytes": 123361
+    },
+    {
+      "path": "BoxR_curve.png",
+      "bytes": 149444
+    },
+    {
+      "path": "confusion_matrix.png",
+      "bytes": 115001
+    },
+    {
+      "path": "confusion_matrix_normalized.png",
+      "bytes": 111223
+    },
+    {
+      "path": "dataset_manifest.json",
+      "bytes": 951
+    },
+    {
+      "path": "dataset_original.yaml",
+      "bytes": 109
+    },
+    {
+      "path": "dataset_resolution.json",
+      "bytes": 2053
+    },
+    {
+      "path": "dataset_resolved.yaml",
+      "bytes": 344
+    },
+    {
+      "path": "dataset_summary.json",
+      "bytes": 1041
+    },
+    {
+      "path": "events.out.tfevents.1777074508.ThinkBook16.43948.0",
+      "bytes": 399492
+    },
+    {
+      "path": "extra_plots.json",
+      "bytes": 53
+    },
+    {
+      "path": "labels.jpg",
+      "bytes": 123233
+    },
+    {
+      "path": "per_class_metrics.json",
+      "bytes": 449
+    },
+    {
+      "path": "pip_freeze.txt",
+      "bytes": 11169
+    },
+    {
+      "path": "presentation_report.md",
+      "bytes": 931
+    },
+    {
+      "path": "results.csv",
+      "bytes": 15209
+    },
+    {
+      "path": "results.png",
+      "bytes": 326156
+    },
+    {
+      "path": "results_summary.json",
+      "bytes": 1883
+    },
+    {
+      "path": "train_batch0.jpg",
+      "bytes": 215851
+    },
+    {
+      "path": "train_batch1.jpg",
+      "bytes": 227534
+    },
+    {
+      "path": "train_batch2.jpg",
+      "bytes": 225667
+    },
+    {
+      "path": "train_context.json",
+      "bytes": 268122
+    },
+    {
+      "path": "training_dashboard.png",
+      "bytes": 297312
+    },
+    {
+      "path": "val_batch0_labels.jpg",
+      "bytes": 361462
+    },
+    {
+      "path": "val_batch0_pred.jpg",
+      "bytes": 399108
+    },
+    {
+      "path": "val_batch1_labels.jpg",
+      "bytes": 341670
+    },
+    {
+      "path": "val_batch1_pred.jpg",
+      "bytes": 372719
+    },
+    {
+      "path": "val_batch2_labels.jpg",
+      "bytes": 385238
+    },
+    {
+      "path": "val_batch2_pred.jpg",
+      "bytes": 412613
+    },
+    {
+      "path": "val_metrics.json",
+      "bytes": 898
+    },
+    {
+      "path": "weights\\best.pt",
+      "bytes": 5461566
+    },
+    {
+      "path": "weights\\last.pt",
+      "bytes": 5461566
+    }
+  ]
+}

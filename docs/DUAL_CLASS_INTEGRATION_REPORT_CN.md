@@ -294,7 +294,7 @@ total_count = row.get("total_count", aphid_count + slug_count)
 
 #### 4.7 同步更新训练配置文件
 
-当前系统仓库里的 `ml/yolo/data.yaml` 还是单类 aphid 配置。
+当前系统仓库里的 `ml/yolo/data.yaml` 已经同步为双类配置，并会和训练脚本一起进入 repo。
 
 如果以后要在当前系统仓库里做：
 
@@ -302,7 +302,7 @@ total_count = row.get("total_count", aphid_count + slug_count)
 - 评估
 - 数据集说明
 
-那这个 `data.yaml` 也必须同步更新成双类：
+这个 `data.yaml` 需要继续保持双类配置：
 
 - `0: aphid`
 - `1: slug`
@@ -426,7 +426,7 @@ total_count = row.get("total_count", aphid_count + slug_count)
 要注意：
 
 - 这些数字来自双类训练项目目录
-- 不是当前 `Website/archive (2)` 仓库里的旧单类训练摘要文件
+- 当前 `defense_assets/yolo_training/` 已经同步为这批双类训练结果
 
 所以如果后面要给队友或老师看，最好明确说明指标来源，避免和旧单类结果混淆。
 
@@ -441,7 +441,7 @@ total_count = row.get("total_count", aphid_count + slug_count)
 3. 修改读取层，对旧历史行加兼容 fallback
 4. 修改 `/grafana/aphidcounts`
 5. 修改 `/predict/trend` 只读 `aphid_count`
-6. 修改 `ml/yolo/data.yaml`
+6. 确认 `ml/yolo/data.yaml` 保持双类配置
 7. 增加一条 mixed-class smoke test
 8. 运行 smoke test，完成本地接口验证
 9. 替换 `best.pt`

@@ -1,39 +1,43 @@
 {
   "names": {
-    "0": "aphid"
+    "0": "aphid",
+    "1": "slug"
   },
   "splits": {
     "train": {
       "image_dirs": [
-        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\train\\images"
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\trip\\6e723\\aphid-slug-yolo26\\train\\images"
       ],
-      "image_count": 1710,
-      "label_file_count": 1710,
-      "bbox_count": 17253,
+      "image_count": 2532,
+      "label_file_count": 2532,
+      "bbox_count": 18170,
       "bbox_count_by_class": {
-        "aphid": 17253
+        "aphid": 17253,
+        "slug": 917
       }
     },
     "val": {
       "image_dirs": [
-        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\valid\\images"
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\trip\\6e723\\aphid-slug-yolo26\\valid\\images"
       ],
-      "image_count": 179,
-      "label_file_count": 179,
-      "bbox_count": 1867,
+      "image_count": 235,
+      "label_file_count": 235,
+      "bbox_count": 1934,
       "bbox_count_by_class": {
-        "aphid": 1867
+        "aphid": 1867,
+        "slug": 67
       }
     },
     "test": {
       "image_dirs": [
-        "C:\\Users\\Amour\\Desktop\\UCL IoT\\design sensor system\\Aphids\\test\\images"
+        "C:\\Users\\Amour\\Desktop\\UCL IoT\\trip\\6e723\\aphid-slug-yolo26\\test\\images"
       ],
-      "image_count": 76,
-      "label_file_count": 76,
-      "bbox_count": 698,
+      "image_count": 116,
+      "label_file_count": 116,
+      "bbox_count": 740,
       "bbox_count_by_class": {
-        "aphid": 698
+        "aphid": 698,
+        "slug": 42
       }
     }
   }
