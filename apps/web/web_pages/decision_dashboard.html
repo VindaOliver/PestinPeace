@@ -384,8 +384,7 @@
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
         <label for="endpoint">Decision Endpoint（决策接口地址，base URL 或 /decision/weekly）</label>
-        <input id="endpoint" type="text"
-          value="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/weekly" />
+        <input id="endpoint" type="text" value="" />
       </div>
 
       <div class="field">
@@ -536,6 +535,7 @@
     const waterLhaEl = document.getElementById("waterLha");
     const treatedFractionEl = document.getElementById("treatedFraction");
     const gateReasonEl = document.getElementById("gateReason");
+    const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
     // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
@@ -548,6 +548,25 @@
         predictNav.href = "./local_web_client.html";
         telemetryNav.href = "./telemetry_dashboard.html";
         historyNav.href = "./history_records.html";
+      }
+    }
+
+    function getRuntimeApiBase() {
+      const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+      if (stored) return stored;
+      const origin = window.location.origin || "";
+      return origin && origin !== "null" ? origin : "";
+    }
+
+    function getDefaultDecisionUrl() {
+      const base = getRuntimeApiBase();
+      return base ? `${base}/decision/weekly` : "";
+    }
+
+    function rememberApiBase(decisionUrl) {
+      const base = String(decisionUrl || "").replace(/\/decision\/weekly$/, "");
+      if (base) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, base);
       }
     }
 
@@ -626,6 +645,7 @@
       try {
         const decisionUrl = normalizeDecisionUrl(endpointInput.value);
         if (!decisionUrl) throw new Error("Endpoint is empty");
+        rememberApiBase(decisionUrl);
         const healthUrl = healthUrlFromDecision(decisionUrl);
         setStatus(`Checking health: ${healthUrl}`);
         const res = await fetch(healthUrl, { method: "GET" });
@@ -660,6 +680,7 @@
       try {
         const decisionUrl = normalizeDecisionUrl(endpointInput.value);
         if (!decisionUrl) throw new Error("Endpoint is empty");
+        rememberApiBase(decisionUrl);
         const payload = buildPayload();
         setStatus("Running decision model...");
         const res = await fetch(decisionUrl, {
@@ -681,6 +702,7 @@
     });
 
     configureNavigation();
+    endpointInput.value = getDefaultDecisionUrl();
   </script>
 </body>
 

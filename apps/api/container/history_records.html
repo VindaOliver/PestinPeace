@@ -468,8 +468,7 @@
     <div class="controls">
       <div>
         <label for="baseUrl">历史接口地址（支持 base URL 或完整 /history）</label>
-        <input id="baseUrl"
-          value="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/history" />
+        <input id="baseUrl" value="" />
       </div>
       <div>
         <label for="limit">Limit</label>
@@ -504,6 +503,7 @@
     const decisionNav = document.getElementById("decisionNav");
     const trendCanvas = document.getElementById("countTrendChart");
     let trendChart = null;
+    const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
     // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
@@ -519,6 +519,75 @@
       }
     }
 
+    function getRuntimeApiBase() {
+      const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+      if (stored) return stored;
+      const origin = window.location.origin || "";
+      return origin && origin !== "null" ? origin : "";
+    }
+
+    function getDefaultHistoryUrl() {
+      const base = getRuntimeApiBase();
+      return base ? `${base}/history` : "";
+    }
+
+    function rememberApiBase(historyUrl) {
+      const base = String(historyUrl || "").replace(/\/history$/, "");
+      if (base) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, base);
+      }
+    }
+
+    function getSafeHttpUrl(value) {
+      if (!value) return null;
+      const base = window.location.origin && window.location.origin !== "null"
+        ? window.location.origin
+        : "http://localhost";
+      try {
+        const url = new URL(String(value), base);
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          return null;
+        }
+        return url.href;
+      } catch {
+        return null;
+      }
+    }
+
+    function appendMetaRow(parent, label, value) {
+      const row = document.createElement("div");
+      row.className = "record-row";
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "record-label";
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement("span");
+      valueEl.className = "record-value";
+      valueEl.textContent = value;
+
+      row.append(labelEl, valueEl);
+      parent.appendChild(row);
+    }
+
+    function createRecordLink(url, fallbackLabel, blobName, icon) {
+      const safeUrl = getSafeHttpUrl(url);
+      if (!safeUrl) return null;
+
+      const link = document.createElement("a");
+      link.className = "record-link";
+      link.href = safeUrl;
+      link.target = "_blank";
+      link.rel = "noopener";
+
+      const iconEl = document.createElement("span");
+      iconEl.className = "record-link-icon";
+      iconEl.textContent = icon;
+
+      link.append(iconEl, document.createTextNode(blobName || fallbackLabel));
+      return link;
+    }
+
     // Status banner helper for success/error feedback.
     function setStatus(text, isErr = false) {
       statusEl.textContent = text;
@@ -527,9 +596,12 @@
 
     // Render API records into responsive cards.
     function renderRows(records) {
-      bodyEl.innerHTML = "";
+      bodyEl.replaceChildren();
       if (!records || records.length === 0) {
-        bodyEl.innerHTML = '<div class="no-records">暂无历史记录</div>';
+        const emptyEl = document.createElement("div");
+        emptyEl.className = "no-records";
+        emptyEl.textContent = "暂无历史记录";
+        bodyEl.appendChild(emptyEl);
         return;
       }
       for (const r of records) {
@@ -546,50 +618,49 @@
         const totalCount = Number.isFinite(Number(r.total_count))
           ? Number(r.total_count)
           : ((Number.isFinite(Number(aphidCount)) ? Number(aphidCount) : 0) + slugCount);
+        const header = document.createElement("div");
+        header.className = "record-header";
 
-        let linksHtml = '';
-        const imageUrl = r.image_view_url || r.image_blob_url;
-        if (imageUrl) {
-          linksHtml += `<a class="record-link" href="${imageUrl}" target="_blank" rel="noopener"><span class="record-link-icon">🖼️</span>${r.image_blob_name || '查看图片'}</a>`;
-        }
-        const historyUrl = r.history_view_url || r.history_blob_url;
-        if (historyUrl) {
-          linksHtml += `<a class="record-link" href="${historyUrl}" target="_blank" rel="noopener"><span class="record-link-icon">📄</span>${r.history_blob_name || '查看记录'}</a>`;
-        }
+        const timeEl = document.createElement("span");
+        timeEl.className = "record-time";
+        timeEl.textContent = time;
 
-        card.innerHTML = `
-          <div class="record-header">
-            <span class="record-time">${time}</span>
-            <div class="record-counts">
-              <span class="record-count">A ${aphidCount}</span>
-              <span class="record-count alt">S ${slugCount}</span>
-              <span class="record-count total">T ${totalCount}</span>
-            </div>
-          </div>
-          <div class="record-meta">
-            <div class="record-row">
-              <span class="record-label">文件</span>
-              <span class="record-value">${fname || '-'}</span>
-            </div>
-            <div class="record-row">
-              <span class="record-label">请求 ID</span>
-              <span class="record-value">${req || '-'}</span>
-            </div>
-            <div class="record-row">
-              <span class="record-label">Aphid</span>
-              <span class="record-value">${aphidCount}</span>
-            </div>
-            <div class="record-row">
-              <span class="record-label">Slug</span>
-              <span class="record-value">${slugCount}</span>
-            </div>
-            <div class="record-row">
-              <span class="record-label">Total</span>
-              <span class="record-value">${totalCount}</span>
-            </div>
-          </div>
-          ${linksHtml ? `<div class="record-links">${linksHtml}</div>` : ''}
-        `;
+        const countsEl = document.createElement("div");
+        countsEl.className = "record-counts";
+        [
+          { cls: "record-count", text: `A ${aphidCount}` },
+          { cls: "record-count alt", text: `S ${slugCount}` },
+          { cls: "record-count total", text: `T ${totalCount}` },
+        ].forEach(({ cls, text }) => {
+          const chip = document.createElement("span");
+          chip.className = cls;
+          chip.textContent = text;
+          countsEl.appendChild(chip);
+        });
+        header.append(timeEl, countsEl);
+
+        const meta = document.createElement("div");
+        meta.className = "record-meta";
+        appendMetaRow(meta, "文件", fname || "-");
+        appendMetaRow(meta, "请求 ID", req || "-");
+        appendMetaRow(meta, "Aphid", String(aphidCount));
+        appendMetaRow(meta, "Slug", String(slugCount));
+        appendMetaRow(meta, "Total", String(totalCount));
+
+        card.append(header, meta);
+
+        const links = [];
+        const imageLink = createRecordLink(r.image_view_url || r.image_blob_url, "查看图片", r.image_blob_name, "🖼️");
+        if (imageLink) links.push(imageLink);
+        const historyLink = createRecordLink(r.history_view_url || r.history_blob_url, "查看记录", r.history_blob_name, "📄");
+        if (historyLink) links.push(historyLink);
+
+        if (links.length) {
+          const linksEl = document.createElement("div");
+          linksEl.className = "record-links";
+          links.forEach(link => linksEl.appendChild(link));
+          card.appendChild(linksEl);
+        }
         bodyEl.appendChild(card);
       }
     }
@@ -698,6 +769,7 @@
     // Accept base URL or full /history endpoint.
     function normalizeHistoryUrl(url) {
       const u = (url || "").trim().replace(/\/+$/, "");
+      if (!u) return "";
       if (u.endsWith("/history")) return u;
       return `${u}/history`;
     }
@@ -710,6 +782,7 @@
         setStatus("历史接口地址不能为空。", true);
         return;
       }
+      rememberApiBase(historyBase);
 
       const url = `${historyBase}?limit=${encodeURIComponent(limit)}`;
       try {
@@ -730,6 +803,7 @@
 
     loadBtn.addEventListener("click", loadHistory);
     configureNavigation();
+    baseEl.value = getDefaultHistoryUrl();
   </script>
 </body>
 

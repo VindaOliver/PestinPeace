@@ -387,7 +387,6 @@
 
   <script>
     // DOM references and shared navigation links.
-    const defaultBase = "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io";
     const baseEl = document.getElementById("baseUrl");
     const deviceEl = document.getElementById("deviceId");
     const keyEl = document.getElementById("apiKey");
@@ -396,6 +395,7 @@
     const predictNav = document.getElementById("predictNav");
     const historyNav = document.getElementById("historyNav");
     const decisionNav = document.getElementById("decisionNav");
+    const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
     // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
@@ -411,7 +411,21 @@
       }
     }
 
-    baseEl.value = defaultBase;
+    function getRuntimeApiBase() {
+      const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+      if (stored) return stored;
+      const origin = window.location.origin || "";
+      return origin && origin !== "null" ? origin : "";
+    }
+
+    function rememberApiBase(base) {
+      const normalized = String(base || "").trim().replace(/\/+$/, "");
+      if (normalized) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
+      }
+    }
+
+    baseEl.value = getRuntimeApiBase();
 
     // Status banner helper for success/error feedback.
     function setStatus(text, isErr = false) {
@@ -487,6 +501,7 @@
       const url = `${base}/telemetry/latest?device_id=${encodeURIComponent(device)}&limit=200`;
       const headers = {};
       if (apiKey) headers["X-API-Key"] = apiKey;
+      rememberApiBase(base);
 
       try {
         setStatus(`Loading ${url}`);

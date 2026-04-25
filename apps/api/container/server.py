@@ -46,6 +46,7 @@ DEFAULT_CONF = float(os.getenv("DEFAULT_CONF", "0.25"))
 DEFAULT_IOU = float(os.getenv("DEFAULT_IOU", "0.45"))
 DEFAULT_IMGSZ = int(os.getenv("DEFAULT_IMGSZ", "640"))
 DEFAULT_MAX_DET = int(os.getenv("DEFAULT_MAX_DET", "1000"))
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "50000000"))
 TEPP_DEMO_MODEL_PATH = os.getenv("TEPP_DEMO_MODEL_PATH", str(APP_DIR / "model" / "tepp_demo_scope_model.pkl"))
 TEPP_DEMO_META_PATH = os.getenv("TEPP_DEMO_META_PATH", str(APP_DIR / "model" / "tepp_demo_meta.json"))
 TEPP_DEFAULT_RATE_KG_HA = float(os.getenv("TEPP_DEFAULT_RATE_KG_HA", "0.14"))
@@ -1543,6 +1544,11 @@ async def predict(
     raw = await image.read()
     if not raw:
         raise HTTPException(status_code=400, detail="Empty image.")
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image too large. Maximum allowed size is {MAX_UPLOAD_BYTES} bytes.",
+        )
 
     try:
         pil_img = Image.open(io.BytesIO(raw)).convert("RGB")

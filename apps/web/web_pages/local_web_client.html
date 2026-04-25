@@ -398,8 +398,7 @@
     <div class="grid">
       <div class="field" style="grid-column: 1 / -1;">
         <label for="endpoint">接口地址（支持 base URL 或完整 /predict 路径）</label>
-        <input id="endpoint" type="text"
-          value="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/predict" />
+        <input id="endpoint" type="text" value="" />
       </div>
       <div class="field">
         <label for="conf">conf</label>
@@ -478,6 +477,7 @@
     const telemetryNav = document.getElementById("telemetryNav");
     const historyNav = document.getElementById("historyNav");
     const decisionNav = document.getElementById("decisionNav");
+    const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
     // Route links are different in local static mode vs API-hosted dashboard mode.
     function configureNavigation() {
@@ -493,9 +493,29 @@
       }
     }
 
+    function getRuntimeApiBase() {
+      const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+      if (stored) return stored;
+      const origin = window.location.origin || "";
+      return origin && origin !== "null" ? origin : "";
+    }
+
+    function getDefaultPredictUrl() {
+      const base = getRuntimeApiBase();
+      return base ? `${base}/predict` : "";
+    }
+
+    function rememberApiBase(predictUrl) {
+      const base = String(predictUrl || "").replace(/\/predict$/, "");
+      if (base) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, base);
+      }
+    }
+
     // Allow either base URL or full /predict endpoint input.
     function normalizePredictUrl(url) {
       const u = url.trim().replace(/\/+$/, "");
+      if (!u) return "";
       if (u.endsWith("/predict")) return u;
       return `${u}/predict`;
     }
@@ -577,6 +597,7 @@
     healthBtn.addEventListener("click", async () => {
       try {
         const predictUrl = normalizePredictUrl(endpointInput.value);
+        rememberApiBase(predictUrl);
         const hUrl = healthUrlFromPredict(predictUrl);
         setStatus(`检查中: ${hUrl}`);
         const res = await fetch(hUrl, { method: "GET" });
@@ -598,6 +619,7 @@
       }
 
       const predictUrl = normalizePredictUrl(endpointInput.value);
+      rememberApiBase(predictUrl);
       const params = new URLSearchParams({
         conf: confInput.value || "0.25",
         iou: iouInput.value || "0.45",
@@ -647,6 +669,7 @@
     });
 
     configureNavigation();
+    endpointInput.value = getDefaultPredictUrl();
   </script>
 </body>
 

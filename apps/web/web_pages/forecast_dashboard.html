@@ -310,7 +310,7 @@
 
     <div class="field" style="margin-bottom: 16px;">
       <label for="endpoint">Forecast Endpoint (base URL or full /forecast/... URL)</label>
-      <input id="endpoint" type="text" value="https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/forecast/weekly" />
+      <input id="endpoint" type="text" value="" />
     </div>
 
     <div class="section-title">Azure Auto Source</div>
@@ -467,6 +467,7 @@
     const nextCatchRateEl = document.getElementById("nextCatchRate");
     const deltaCatchRateEl = document.getElementById("deltaCatchRate");
     const modelSourceEl = document.getElementById("modelSource");
+    const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
     function configureNavigation() {
       const path = window.location.pathname || "";
@@ -480,6 +481,25 @@
         telemetryNav.href = "./telemetry_dashboard.html";
         historyNav.href = "./history_records.html";
         decisionNav.href = "./decision_dashboard.html";
+      }
+    }
+
+    function getRuntimeApiBase() {
+      const stored = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+      if (stored) return stored;
+      const origin = window.location.origin || "";
+      return origin && origin !== "null" ? origin : "";
+    }
+
+    function getDefaultForecastUrl() {
+      const base = getRuntimeApiBase();
+      return base ? `${base}/forecast/weekly` : "";
+    }
+
+    function rememberApiBase(url) {
+      const base = normalizeBaseUrl(url);
+      if (base) {
+        window.localStorage.setItem(API_BASE_STORAGE_KEY, base);
       }
     }
 
@@ -589,6 +609,7 @@
       try {
         const healthUrl = healthUrlFromInput(endpointInput.value);
         if (!healthUrl) throw new Error("Endpoint is empty");
+        rememberApiBase(endpointInput.value);
         setStatus(`Checking health: ${healthUrl}`);
         const res = await fetch(healthUrl, { method: "GET" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -604,6 +625,7 @@
       try {
         const forecastUrl = weeklyUrlFromInput(endpointInput.value);
         if (!forecastUrl) throw new Error("Endpoint is empty");
+        rememberApiBase(endpointInput.value);
         const payload = buildPayload();
         setStatus("Running manual forecast...");
         const res = await fetch(forecastUrl, {
@@ -632,6 +654,7 @@
         const days = parseNumber(autoDaysInput, { required: true });
         if (!forecastUrl) throw new Error("Endpoint is empty");
         if (!deviceId) throw new Error("Missing device_id");
+        rememberApiBase(endpointInput.value);
 
         const url = new URL(forecastUrl);
         url.searchParams.set("device_id", deviceId);
@@ -655,6 +678,7 @@
     });
 
     configureNavigation();
+    endpointInput.value = getDefaultForecastUrl();
   </script>
 </body>
 </html>
