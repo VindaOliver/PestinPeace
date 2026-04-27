@@ -403,7 +403,10 @@
             <input id="apiKey" placeholder="当前线上通常为空" />
           </div>
         </div>
-        <button class="btn secondary" id="saveSettingsBtn">保存设置</button>
+        <div class="row">
+          <button class="btn secondary" id="saveSettingsBtn">保存设置</button>
+          <button class="btn blue" id="useProdBtn">使用线上 API</button>
+        </div>
         <span class="status" id="settingsStatus">建议录制使用 demo-trap-001</span>
       </div>
     </section>
@@ -538,10 +541,37 @@
       decisionHistory: null,
     };
 
+    function isLocalPreviewBase(value) {
+      try {
+        const url = new URL(value);
+        const host = url.hostname.toLowerCase();
+        const localHost = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+        return localHost && url.port !== "8000";
+      } catch {
+        return true;
+      }
+    }
+
+    function isHttpBase(value) {
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
     function initialBase() {
       const saved = localStorage.getItem("demo_api_base");
-      if (saved) return saved;
-      if (window.location.origin && window.location.origin !== "null") return window.location.origin;
+      if (saved && isHttpBase(saved) && !isLocalPreviewBase(saved)) return saved;
+      if (
+        window.location.origin &&
+        window.location.origin !== "null" &&
+        isHttpBase(window.location.origin) &&
+        !isLocalPreviewBase(window.location.origin)
+      ) {
+        return window.location.origin;
+      }
       return prodBase;
     }
 
@@ -568,7 +598,13 @@
     }
 
     async function request(path, options = {}) {
-      const res = await fetch(`${apiBase()}${path}`, options);
+      const url = `${apiBase()}${path}`;
+      let res;
+      try {
+        res = await fetch(url, options);
+      } catch (err) {
+        throw new Error(`无法连接 ${url}。如果你是从 VS Code/Live Server 本地预览打开，请点击“使用线上 API”后重试。原始错误：${err.message}`);
+      }
       let data;
       const text = await res.text();
       try {
@@ -577,7 +613,7 @@
         data = { raw: text };
       }
       if (!res.ok) {
-        throw new Error(data.detail ? JSON.stringify(data.detail) : `${res.status} ${res.statusText}`);
+        throw new Error(`${url} 返回 ${res.status}：${data.detail ? JSON.stringify(data.detail) : res.statusText}`);
       }
       return data;
     }
@@ -650,8 +686,14 @@
       setStatus("settingsStatus", "设置已保存", "ok");
     });
 
+    document.getElementById("useProdBtn").addEventListener("click", () => {
+      apiBaseInput.value = prodBase;
+      localStorage.setItem("demo_api_base", prodBase);
+      setStatus("settingsStatus", "已切换到线上 API", "ok");
+    });
+
     document.getElementById("healthBtn").addEventListener("click", async () => {
-      setStatus("healthStatus", "检查中...");
+      setStatus("healthStatus", "检查中，首次冷启动可能需要 60-90 秒...");
       try {
         const health = await request("/health");
         const ready = await request("/ready");
