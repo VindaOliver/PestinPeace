@@ -225,3 +225,4 @@ This reads prediction history JSON from Blob storage.
 - `/history/dashboard`
 - `/decision/dashboard`
 - `/forecast/dashboard`
+- `/demo/dashboard`

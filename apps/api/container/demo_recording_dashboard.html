@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PestinPeace 演示录制控制台</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --ink: #1d2a22;
+      --muted: #657366;
+      --card: rgba(255, 255, 255, 0.78);
+      --line: rgba(40, 70, 55, 0.16);
+      --leaf: #2f8f62;
+      --leaf-dark: #1f6f4b;
+      --amber: #d88424;
+      --red: #b93a32;
+      --blue: #2f6c99;
+      --shadow: 0 24px 70px rgba(50, 44, 32, 0.16);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Noto Sans SC", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(74, 151, 104, 0.22), transparent 28%),
+        radial-gradient(circle at 88% 6%, rgba(216, 132, 36, 0.18), transparent 26%),
+        linear-gradient(140deg, #fbf7ee 0%, var(--bg) 48%, #e8f0dd 100%);
+      padding: 28px;
+    }
+
+    main {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.35fr 0.65fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .hero-card {
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      right: -80px;
+      top: -100px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(47, 143, 98, 0.25), transparent 68%);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .setup {
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #34463a;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 11px 12px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.78);
+      font: inherit;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(47, 143, 98, 0.7);
+      box-shadow: 0 0 0 4px rgba(47, 143, 98, 0.13);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 430px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .steps,
+    .output {
+      padding: 18px;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.55);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .step-head {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .badge {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--leaf);
+      font-weight: 800;
+    }
+
+    .step h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .step p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .row.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, var(--leaf), var(--leaf-dark));
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(47, 143, 98, 0.22);
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 30px rgba(47, 143, 98, 0.28);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn.secondary {
+      background: linear-gradient(135deg, #617063, #3d4c42);
+    }
+
+    .btn.amber {
+      background: linear-gradient(135deg, #e39a34, #bc691d);
+    }
+
+    .btn.blue {
+      background: linear-gradient(135deg, #3c80af, #235c84);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(101, 115, 102, 0.12);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+
+    .status.ok {
+      background: rgba(47, 143, 98, 0.14);
+      color: var(--leaf-dark);
+    }
+
+    .status.err {
+      background: rgba(185, 58, 50, 0.12);
+      color: var(--red);
+    }
+
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .quick-links a {
+      text-decoration: none;
+      color: var(--leaf-dark);
+      font-weight: 800;
+      border: 1px solid rgba(47, 143, 98, 0.24);
+      border-radius: 999px;
+      padding: 8px 11px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .metric small {
+      display: block;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .metric strong {
+      font-size: 30px;
+      letter-spacing: -0.04em;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.54);
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    pre {
+      max-height: 360px;
+      overflow: auto;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(29, 42, 34, 0.12);
+      background: #172018;
+      color: #dff5dd;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .script-box {
+      border-left: 5px solid var(--amber);
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(216, 132, 36, 0.11);
+      color: #5f3d15;
+      line-height: 1.65;
+      margin-bottom: 16px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 1040px) {
+      .hero,
+      .grid,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 14px;
+      }
+
+      .row,
+      .row.three,
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <section class="hero">
+      <div class="hero-card panel">
+        <h1>演示录制控制台</h1>
+        <p class="subtitle">
+          用一个页面串起“传感器上传 -> 图片识别 -> 历史入库 -> 趋势预测 -> 喷药决策 -> 写入决策历史”。
+          录视频时按 1 到 7 走，不用在多个页面之间乱跳。
+        </p>
+        <div class="quick-links">
+          <a href="/predict/dashboard" target="_blank">图片识别页</a>
+          <a href="/forecast/dashboard" target="_blank">预测页</a>
+          <a href="/decision/dashboard" target="_blank">决策页</a>
+          <a href="/history/dashboard" target="_blank">历史页</a>
+          <a href="/telemetry/dashboard" target="_blank">传感器页</a>
+        </div>
+      </div>
+
+      <div class="setup panel">
+        <div>
+          <label for="apiBase">API Base URL</label>
+          <input id="apiBase" />
+        </div>
+        <div class="row">
+          <div>
+            <label for="deviceId">device_id</label>
+            <input id="deviceId" value="demo-trap-001" />
+          </div>
+          <div>
+            <label for="apiKey">X-API-Key（如启用）</label>
+            <input id="apiKey" placeholder="当前线上通常为空" />
+          </div>
+        </div>
+        <button class="btn secondary" id="saveSettingsBtn">保存设置</button>
+        <span class="status" id="settingsStatus">建议录制使用 demo-trap-001</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <aside class="steps panel">
+        <h2 class="section-title">录制步骤</h2>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">1</span><h3>检查服务状态</h3></div>
+          <p>先把服务唤醒，避免录制中出现冷启动卡顿。</p>
+          <button class="btn secondary" id="healthBtn">检查 /health + /ready</button>
+          <div class="status" id="healthStatus">未检查</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">2</span><h3>上传一轮传感器数据</h3></div>
+          <p>这一步证明硬件温湿度、气压、光照、土壤数据进入系统。</p>
+          <div class="row three">
+            <div><label>温度</label><input id="temperature" type="number" value="18.6" step="0.1" /></div>
+            <div><label>湿度</label><input id="humidity" type="number" value="72.0" step="0.1" /></div>
+            <div><label>气压</label><input id="pressure" type="number" value="1012.8" step="0.1" /></div>
+          </div>
+          <div class="row three">
+            <div><label>光照</label><input id="lux" type="number" value="320.5" step="0.1" /></div>
+            <div><label>土壤湿度</label><input id="soil" type="number" value="12.0" step="0.1" /></div>
+            <div><label>计划拍照</label><input id="shots" type="number" value="1" min="1" max="5" /></div>
+          </div>
+          <button class="btn" id="telemetryBtn">上传 telemetry</button>
+          <div class="status" id="telemetryStatus">未上传</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">3</span><h3>拍照 / 上传图片识别</h3></div>
+          <p>选择一张虫子图片，页面会调用 YOLO 并在右侧画出检测框。</p>
+          <input id="imageInput" type="file" accept="image/*" />
+          <div class="row">
+            <div><label>conf</label><input id="conf" type="number" value="0.25" min="0" max="1" step="0.01" /></div>
+            <div><label>imgsz</label><input id="imgsz" type="number" value="640" min="32" max="1280" /></div>
+          </div>
+          <button class="btn" id="predictBtn">上传图片并识别</button>
+          <div class="status" id="predictStatus">未识别</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">4</span><h3>查看趋势与自动预测</h3></div>
+          <p>用历史虫量 + 环境数据 + 伦敦天气，展示虫压变化趋势。</p>
+          <button class="btn blue" id="trendBtn">读取 trend + forecast</button>
+          <div class="status" id="trendStatus">未读取</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">5</span><h3>触发喷药建议</h3></div>
+          <p>为保证录制稳定，默认使用高虫量和允许用药窗口，确保能出现“建议喷药”。</p>
+          <div class="row three">
+            <div><label>演示 aphid_count</label><input id="decisionAphids" type="number" value="25" min="0" /></div>
+            <div><label>面积 ha</label><input id="fieldArea" type="number" value="2.0" step="0.1" min="0.1" /></div>
+            <div><label>暴露天数</label><input id="exposureDays" type="number" value="7" min="1" max="14" /></div>
+          </div>
+          <button class="btn amber" id="decisionBtn">计算喷药建议</button>
+          <div class="status" id="decisionStatus">未计算</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">6</span><h3>写入喷药决策历史</h3></div>
+          <p>把刚才的建议作为“已喷药记录”写入决策历史表，Grafana/前端都能查到。</p>
+          <button class="btn amber" id="saveDecisionBtn" disabled>保存 decision history</button>
+          <div class="status" id="saveDecisionStatus">等待喷药建议</div>
+        </div>
+
+        <div class="step">
+          <div class="step-head"><span class="badge">7</span><h3>刷新演示数据</h3></div>
+          <p>最后展示所有数据都已经能通过 API 查回来。</p>
+          <button class="btn blue" id="refreshBtn">刷新 Grafana API 数据</button>
+          <div class="status" id="refreshStatus">未刷新</div>
+        </div>
+      </aside>
+
+      <section class="output panel">
+        <h2 class="section-title">录屏画面</h2>
+        <div class="script-box" id="scriptBox">
+          讲解词：摄像头拍到虫子后，系统把图片送到 YOLO 模型识别 aphid 和 slug，同时保存虫量。传感器上传温湿度、气压、土壤湿度等环境数据。后端再结合历史虫量和天气趋势，判断虫压是否上升，并给出是否喷药、喷药范围和用量建议。
+        </div>
+
+        <div class="cards">
+          <div class="metric"><small>aphid_count</small><strong id="aphidMetric">-</strong></div>
+          <div class="metric"><small>slug_count</small><strong id="slugMetric">-</strong></div>
+          <div class="metric"><small>total_count</small><strong id="totalMetric">-</strong></div>
+          <div class="metric"><small>spray decision</small><strong id="sprayMetric">-</strong></div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="previewCanvas"></canvas>
+          <span id="canvasHint">选择图片后，这里会显示检测框</span>
+        </div>
+
+        <div class="split">
+          <div>
+            <h3 class="section-title">关键结果</h3>
+            <pre id="summaryOutput">等待操作...</pre>
+          </div>
+          <div>
+            <h3 class="section-title">原始 JSON</h3>
+            <pre id="jsonOutput">{}</pre>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const prodBase = "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io";
+    const apiBaseInput = document.getElementById("apiBase");
+    const deviceIdInput = document.getElementById("deviceId");
+    const apiKeyInput = document.getElementById("apiKey");
+    const summaryOutput = document.getElementById("summaryOutput");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const scriptBox = document.getElementById("scriptBox");
+    const canvas = document.getElementById("previewCanvas");
+    const ctx = canvas.getContext("2d");
+    const canvasHint = document.getElementById("canvasHint");
+
+    const state = {
+      roundId: makeRoundId(),
+      image: null,
+      imageName: "",
+      prediction: null,
+      telemetry: null,
+      trend: null,
+      forecast: null,
+      decision: null,
+      decisionHistory: null,
+    };
+
+    function initialBase() {
+      const saved = localStorage.getItem("demo_api_base");
+      if (saved) return saved;
+      if (window.location.origin && window.location.origin !== "null") return window.location.origin;
+      return prodBase;
+    }
+
+    apiBaseInput.value = initialBase();
+    deviceIdInput.value = localStorage.getItem("demo_device_id") || "demo-trap-001";
+    apiKeyInput.value = localStorage.getItem("demo_api_key") || "";
+
+    function apiBase() {
+      return apiBaseInput.value.trim().replace(/\/+$/, "") || prodBase;
+    }
+
+    function headers(json = false) {
+      const out = {};
+      if (json) out["Content-Type"] = "application/json";
+      const key = apiKeyInput.value.trim();
+      if (key) out["X-API-Key"] = key;
+      return out;
+    }
+
+    function makeRoundId() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `demo_round_${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}_${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`;
+    }
+
+    async function request(path, options = {}) {
+      const res = await fetch(`${apiBase()}${path}`, options);
+      let data;
+      const text = await res.text();
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+      if (!res.ok) {
+        throw new Error(data.detail ? JSON.stringify(data.detail) : `${res.status} ${res.statusText}`);
+      }
+      return data;
+    }
+
+    function setStatus(id, text, type = "") {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = `status ${type}`.trim();
+    }
+
+    function show(title, data, lines = []) {
+      summaryOutput.textContent = [title, "", ...lines].join("\n");
+      jsonOutput.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function num(id) {
+      const v = Number(document.getElementById(id).value);
+      return Number.isFinite(v) ? v : 0;
+    }
+
+    function updateMetrics() {
+      const p = state.prediction || {};
+      const d = state.decision || {};
+      document.getElementById("aphidMetric").textContent = p.aphid_count ?? "-";
+      document.getElementById("slugMetric").textContent = p.slug_count ?? "-";
+      document.getElementById("totalMetric").textContent = p.total_count ?? "-";
+      document.getElementById("sprayMetric").textContent = d.should_spray === true ? "YES" : d.should_spray === false ? "NO" : "-";
+    }
+
+    function setScript(text) {
+      scriptBox.textContent = `讲解词：${text}`;
+    }
+
+    function drawPrediction() {
+      if (!state.image) return;
+      canvasHint.style.display = "none";
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 920;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const detections = (state.prediction && state.prediction.detections) || [];
+        detections.forEach((det) => {
+          const [x1, y1, x2, y2] = det.bbox_xyxy || [];
+          if (![x1, y1, x2, y2].every(Number.isFinite)) return;
+          const color = String(det.class_name).toLowerCase() === "slug" ? "#d88424" : "#2f8f62";
+          ctx.strokeStyle = color;
+          ctx.lineWidth = Math.max(2, 3 * scale);
+          ctx.strokeRect(x1 * scale, y1 * scale, (x2 - x1) * scale, (y2 - y1) * scale);
+          const label = `${det.class_name || "unknown"} ${(Number(det.confidence || 0) * 100).toFixed(0)}%`;
+          ctx.font = `${Math.max(13, 16 * scale)}px Segoe UI`;
+          const width = ctx.measureText(label).width + 12;
+          const labelY = Math.max(0, y1 * scale - 24);
+          ctx.fillStyle = color;
+          ctx.fillRect(x1 * scale, labelY, width, 22);
+          ctx.fillStyle = "#fff";
+          ctx.fillText(label, x1 * scale + 6, labelY + 16);
+        });
+      };
+      img.src = state.image;
+    }
+
+    document.getElementById("saveSettingsBtn").addEventListener("click", () => {
+      localStorage.setItem("demo_api_base", apiBase());
+      localStorage.setItem("demo_device_id", deviceIdInput.value.trim());
+      localStorage.setItem("demo_api_key", apiKeyInput.value.trim());
+      setStatus("settingsStatus", "设置已保存", "ok");
+    });
+
+    document.getElementById("healthBtn").addEventListener("click", async () => {
+      setStatus("healthStatus", "检查中...");
+      try {
+        const health = await request("/health");
+        const ready = await request("/ready");
+        setStatus("healthStatus", "服务正常，可以开始录制", "ok");
+        show("服务状态正常", { health, ready }, [
+          `model: ${health.model_path || "unknown"}`,
+          `telemetry table: ${health.telemetry_table}`,
+          `aphid count table: ${health.aphid_count_table}`,
+        ]);
+        setScript("我们先检查服务状态。模型、Azure Table 和历史存储都可用，说明后面的上传、识别、预测和决策链路可以开始演示。");
+      } catch (err) {
+        setStatus("healthStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("telemetryBtn").addEventListener("click", async () => {
+      setStatus("telemetryStatus", "上传中...");
+      state.roundId = makeRoundId();
+      const payload = {
+        device_id: deviceIdInput.value.trim(),
+        round_id: state.roundId,
+        temperature_c: num("temperature"),
+        humidity_pct: num("humidity"),
+        pressure_hpa: num("pressure"),
+        lux_avg: num("lux"),
+        lux_valid: 1,
+        env_valid: 1,
+        soil_valid: 1,
+        soil_raw: 790,
+        soil_moisture_pct: num("soil"),
+        fill_on: 0,
+        shots_planned: Number(document.getElementById("shots").value || 1),
+      };
+      try {
+        state.telemetry = await request("/telemetry", {
+          method: "POST",
+          headers: headers(true),
+          body: JSON.stringify(payload),
+        });
+        setStatus("telemetryStatus", `已上传 round_id=${state.roundId}`, "ok");
+        show("传感器数据已上传", state.telemetry, [
+          `device_id: ${payload.device_id}`,
+          `temperature_c: ${payload.temperature_c}`,
+          `humidity_pct: ${payload.humidity_pct}`,
+          `pressure_hpa: ${payload.pressure_hpa}`,
+          `soil_moisture_pct: ${payload.soil_moisture_pct}`,
+        ]);
+        setScript("这一轮硬件先上传环境数据，包括温度、湿度、气压、光照和土壤湿度。后面的趋势预测和喷药决策会把这些环境信息作为上下文。");
+      } catch (err) {
+        setStatus("telemetryStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("imageInput").addEventListener("change", () => {
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) return;
+      state.imageName = file.name;
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.image = reader.result;
+        state.prediction = null;
+        drawPrediction();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("predictBtn").addEventListener("click", async () => {
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) {
+        setStatus("predictStatus", "请先选择图片", "err");
+        return;
+      }
+      setStatus("predictStatus", "识别中...");
+      const params = new URLSearchParams({
+        device_id: deviceIdInput.value.trim(),
+        conf: document.getElementById("conf").value || "0.25",
+        imgsz: document.getElementById("imgsz").value || "640",
+      });
+      const form = new FormData();
+      form.append("image", file);
+      try {
+        state.prediction = await request(`/predict?${params.toString()}`, {
+          method: "POST",
+          headers: headers(false),
+          body: form,
+        });
+        setStatus("predictStatus", "识别完成，虫量已写入表", "ok");
+        updateMetrics();
+        drawPrediction();
+        show("图片识别完成", state.prediction, [
+          `aphid_count: ${state.prediction.aphid_count}`,
+          `slug_count: ${state.prediction.slug_count}`,
+          `total_count: ${state.prediction.total_count}`,
+          `detections: ${(state.prediction.detections || []).length}`,
+          `aphid_count_table_saved: ${state.prediction.aphid_count_table_saved}`,
+        ]);
+        setScript("图片上传后，YOLO 模型会同时识别 aphid 和 slug。系统把每个检测框保存下来，并把 aphid_count、slug_count、total_count 写入虫量表。");
+      } catch (err) {
+        setStatus("predictStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("trendBtn").addEventListener("click", async () => {
+      setStatus("trendStatus", "读取中...");
+      const device = encodeURIComponent(deviceIdInput.value.trim());
+      try {
+        const trend = await request(`/predict/trend?device_id=${device}&days=31`);
+        const forecast = await request(`/forecast/auto?device_id=${device}&days=7`);
+        state.trend = trend;
+        state.forecast = forecast;
+        setStatus("trendStatus", "趋势和预测已读取", "ok");
+        show("趋势与自动预测", { trend, forecast }, [
+          `trend_label: ${trend.trend?.summary?.trend_label}`,
+          `recent_7d_avg: ${trend.trend?.summary?.recent_7d_avg}`,
+          `forecast_label: ${forecast.trend_label}`,
+          `next_count_estimate: ${forecast.next_count_estimate}`,
+        ]);
+        setScript("接下来系统读取历史虫量和传感器数据，并结合伦敦未来天气，判断未来虫压是上升、稳定还是下降。");
+      } catch (err) {
+        setStatus("trendStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("decisionBtn").addEventListener("click", async () => {
+      setStatus("decisionStatus", "计算中...");
+      const aphidCount = Number(document.getElementById("decisionAphids").value || state.prediction?.aphid_count || 25);
+      const payload = {
+        aphid_count: aphidCount,
+        field_area_ha: num("fieldArea"),
+        exposure_days: Number(document.getElementById("exposureDays").value || 7),
+        t_mean: num("temperature"),
+        rh_mean: num("humidity"),
+        apps_so_far: 0,
+        in_tepp_window: 1,
+      };
+      try {
+        state.decision = await request("/decision/weekly", {
+          method: "POST",
+          headers: headers(true),
+          body: JSON.stringify(payload),
+        });
+        setStatus("decisionStatus", state.decision.should_spray ? "建议喷药" : "建议不喷药", state.decision.should_spray ? "ok" : "");
+        document.getElementById("saveDecisionBtn").disabled = false;
+        setStatus("saveDecisionStatus", "可以保存到历史", "");
+        updateMetrics();
+        show("喷药建议已生成", state.decision, [
+          `scope_name: ${state.decision.scope_name}`,
+          `should_spray: ${state.decision.should_spray}`,
+          `product_kg: ${state.decision.product_kg}`,
+          `spray_l: ${state.decision.spray_l}`,
+          `model: ${state.decision.model?.source}`,
+        ]);
+        setScript("根据虫量、面积、温湿度和用药窗口，决策模型给出喷药范围和用量。这里可以看到是否建议喷药，以及需要多少药剂和水量。");
+      } catch (err) {
+        setStatus("decisionStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("saveDecisionBtn").addEventListener("click", async () => {
+      if (!state.decision) return;
+      setStatus("saveDecisionStatus", "保存中...");
+      const template = state.decision.decision_history_template || {};
+      const payload = {
+        device_id: deviceIdInput.value.trim(),
+        round_id: state.prediction?.request_id || state.roundId,
+        decision_id: `video_demo_${Date.now()}`,
+        scope_class: template.scope_class ?? state.decision.scope_class,
+        scope_name: template.scope_name ?? state.decision.scope_name,
+        should_spray: template.should_spray ?? state.decision.should_spray,
+        spray_applied: template.spray_applied ?? state.decision.should_spray,
+        product_kg: template.product_kg ?? state.decision.product_kg,
+        spray_l: template.spray_l ?? state.decision.spray_l,
+        source: "video_demo_dashboard",
+        reason: "Recorded demo: model recommendation accepted and spray action logged.",
+        notes: "Created from /demo/dashboard during the video workflow.",
+      };
+      try {
+        state.decisionHistory = await request("/decision/history", {
+          method: "POST",
+          headers: headers(true),
+          body: JSON.stringify(payload),
+        });
+        setStatus("saveDecisionStatus", "已写入 decisionhistory", "ok");
+        show("喷药决策历史已保存", state.decisionHistory, [
+          `decision_id: ${state.decisionHistory.decision_id}`,
+          `should_spray: ${state.decisionHistory.should_spray}`,
+          `spray_applied: ${state.decisionHistory.spray_applied}`,
+        ]);
+        setScript("最后，系统把这次喷药建议写入决策历史。这样 Grafana 和前端历史页都能看到最新一次是否喷药。");
+      } catch (err) {
+        setStatus("saveDecisionStatus", `失败：${err.message}`, "err");
+      }
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", async () => {
+      setStatus("refreshStatus", "刷新中...");
+      const device = encodeURIComponent(deviceIdInput.value.trim());
+      try {
+        const telemetry = await request(`/grafana/telemetry?device_id=${device}&limit=5`);
+        const counts = await request(`/grafana/aphidcounts?device_id=${device}&limit=5`);
+        const decisions = await request(`/grafana/decisionhistory?device_id=${device}&limit=5`);
+        setStatus("refreshStatus", "三张业务数据都可查询", "ok");
+        show("Grafana/API 数据已刷新", { telemetry, counts, decisions }, [
+          `telemetry rows: ${telemetry.count}`,
+          `aphidcount rows: ${counts.count}`,
+          `decision rows: ${decisions.count}`,
+          "Grafana 可以用这些 /grafana/* 接口画图。",
+        ]);
+        setScript("现在刷新 Grafana 用的接口，可以看到传感器、虫量和喷药决策三类数据都已经通过 API 查回来了。");
+      } catch (err) {
+        setStatus("refreshStatus", `失败：${err.message}`, "err");
+      }
+    });
+  </script>
+</body>
+
+</html>

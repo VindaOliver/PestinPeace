@@ -98,10 +98,14 @@ function Sync-WebPagesToContext([string]$WebPagesDir, [string]$ContextDir) {
     $predictSrc = Join-Path $WebPagesDir "local_web_client.html"
     $historySrc = Join-Path $WebPagesDir "history_records.html"
     $decisionSrc = Join-Path $WebPagesDir "decision_dashboard.html"
+    $forecastSrc = Join-Path $WebPagesDir "forecast_dashboard.html"
+    $demoSrc = Join-Path $WebPagesDir "demo_recording_dashboard.html"
     $telemetryDst = Join-Path $ContextDir "telemetry_dashboard.html"
     $predictDst = Join-Path $ContextDir "local_web_client.html"
     $historyDst = Join-Path $ContextDir "history_records.html"
     $decisionDst = Join-Path $ContextDir "decision_dashboard.html"
+    $forecastDst = Join-Path $ContextDir "forecast_dashboard.html"
+    $demoDst = Join-Path $ContextDir "demo_recording_dashboard.html"
 
     if (-not (Test-Path -LiteralPath $telemetrySrc)) {
         throw "Missing file: $telemetrySrc"
@@ -115,11 +119,19 @@ function Sync-WebPagesToContext([string]$WebPagesDir, [string]$ContextDir) {
     if (-not (Test-Path -LiteralPath $decisionSrc)) {
         throw "Missing file: $decisionSrc"
     }
+    if (-not (Test-Path -LiteralPath $forecastSrc)) {
+        throw "Missing file: $forecastSrc"
+    }
+    if (-not (Test-Path -LiteralPath $demoSrc)) {
+        throw "Missing file: $demoSrc"
+    }
 
     Copy-Item -LiteralPath $telemetrySrc -Destination $telemetryDst -Force
     Copy-Item -LiteralPath $predictSrc -Destination $predictDst -Force
     Copy-Item -LiteralPath $historySrc -Destination $historyDst -Force
     Copy-Item -LiteralPath $decisionSrc -Destination $decisionDst -Force
+    Copy-Item -LiteralPath $forecastSrc -Destination $forecastDst -Force
+    Copy-Item -LiteralPath $demoSrc -Destination $demoDst -Force
     Write-Host ">> Synced web pages into container context."
 }
 

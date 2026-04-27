@@ -150,6 +150,7 @@ def main() -> int:
     module.HISTORY_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "history_records.html").resolve())
     module.DECISION_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "decision_dashboard.html").resolve())
     module.FORECAST_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "forecast_dashboard.html").resolve())
+    module.DEMO_DASHBOARD_PATH = str(_resolve_dashboard_file(app_dir, "demo_recording_dashboard.html").resolve())
 
     client = TestClient(module.app)
     checks: list[CheckResult] = []
@@ -171,7 +172,7 @@ def main() -> int:
         )
 
     # 2) Dashboards
-    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard", "/forecast/dashboard"]:
+    for path in ["/predict/dashboard", "/telemetry/dashboard", "/history/dashboard", "/decision/dashboard", "/forecast/dashboard", "/demo/dashboard"]:
         rr = client.get(path)
         report["responses"][path] = {"status_code": rr.status_code}
         _expect_status(checks, f"{path}_status", rr.status_code, 200)

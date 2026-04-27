@@ -68,6 +68,7 @@ PREDICT_DASHBOARD_PATH = os.getenv("PREDICT_DASHBOARD_PATH", str(APP_DIR / "loca
 HISTORY_DASHBOARD_PATH = os.getenv("HISTORY_DASHBOARD_PATH", str(APP_DIR / "history_records.html"))
 DECISION_DASHBOARD_PATH = os.getenv("DECISION_DASHBOARD_PATH", str(APP_DIR / "decision_dashboard.html"))
 FORECAST_DASHBOARD_PATH = os.getenv("FORECAST_DASHBOARD_PATH", str(APP_DIR / "forecast_dashboard.html"))
+DEMO_DASHBOARD_PATH = os.getenv("DEMO_DASHBOARD_PATH", str(APP_DIR / "demo_recording_dashboard.html"))
 OPEN_METEO_FORECAST_URL = os.getenv("OPEN_METEO_FORECAST_URL", "https://api.open-meteo.com/v1/forecast")
 FORECAST_LOCATION_NAME = os.getenv("FORECAST_LOCATION_NAME", "London")
 FORECAST_LATITUDE = float(os.getenv("FORECAST_LATITUDE", "51.5072"))
@@ -2432,3 +2433,12 @@ def forecast_dashboard() -> FileResponse:
     if not os.path.exists(FORECAST_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(FORECAST_DASHBOARD_PATH)
+
+
+@app.get("/demo/dashboard")
+def demo_dashboard() -> FileResponse:
+    """Serve the video-recording demo control dashboard bundled in the container image."""
+
+    if not os.path.exists(DEMO_DASHBOARD_PATH):
+        raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
+    return FileResponse(DEMO_DASHBOARD_PATH)

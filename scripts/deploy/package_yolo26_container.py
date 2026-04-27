@@ -32,6 +32,8 @@ COPY telemetry_dashboard.html /app/telemetry_dashboard.html
 COPY local_web_client.html /app/local_web_client.html
 COPY history_records.html /app/history_records.html
 COPY decision_dashboard.html /app/decision_dashboard.html
+COPY forecast_dashboard.html /app/forecast_dashboard.html
+COPY demo_recording_dashboard.html /app/demo_recording_dashboard.html
 COPY model /app/model
 
 EXPOSE 8000
@@ -91,6 +93,16 @@ def parse_args() -> argparse.Namespace:
         "--decision-web-template",
         default="apps/web/web_pages/decision_dashboard.html",
         help="Template decision dashboard HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--forecast-web-template",
+        default="apps/web/web_pages/forecast_dashboard.html",
+        help="Template forecast dashboard HTML path to copy into build context.",
+    )
+    parser.add_argument(
+        "--demo-web-template",
+        default="apps/web/web_pages/demo_recording_dashboard.html",
+        help="Template recording demo dashboard HTML path to copy into build context.",
     )
     parser.add_argument(
         "--model-dir",
@@ -187,6 +199,16 @@ def main() -> None:
         raise FileNotFoundError(f"Decision web template not found: {decision_web_template_path}")
     decision_web_code = decision_web_template_path.read_text(encoding="utf-8")
 
+    forecast_web_template_path = _resolve_template_path(args.forecast_web_template, script_dir, repo_root)
+    if not forecast_web_template_path.exists():
+        raise FileNotFoundError(f"Forecast web template not found: {forecast_web_template_path}")
+    forecast_web_code = forecast_web_template_path.read_text(encoding="utf-8")
+
+    demo_web_template_path = _resolve_template_path(args.demo_web_template, script_dir, repo_root)
+    if not demo_web_template_path.exists():
+        raise FileNotFoundError(f"Demo web template not found: {demo_web_template_path}")
+    demo_web_code = demo_web_template_path.read_text(encoding="utf-8")
+
     context_dir = Path(args.context_dir)
     # Recreate context from scratch to avoid stale deployment artifacts.
     if context_dir.exists():
@@ -197,6 +219,8 @@ def main() -> None:
     _write_text(context_dir / "local_web_client.html", predict_web_code)
     _write_text(context_dir / "history_records.html", history_web_code)
     _write_text(context_dir / "decision_dashboard.html", decision_web_code)
+    _write_text(context_dir / "forecast_dashboard.html", forecast_web_code)
+    _write_text(context_dir / "demo_recording_dashboard.html", demo_web_code)
     _write_text(context_dir / "Dockerfile", DOCKERFILE_CODE)
     _write_text(context_dir / "requirements.txt", REQUIREMENTS_CODE)
     shutil.copytree(model_dir, context_dir / "model", dirs_exist_ok=True)
@@ -211,6 +235,8 @@ def main() -> None:
     print(f"[ok] predict web template: {predict_web_template_path.resolve()}")
     print(f"[ok] history web template: {history_web_template_path.resolve()}")
     print(f"[ok] decision web template: {decision_web_template_path.resolve()}")
+    print(f"[ok] forecast web template: {forecast_web_template_path.resolve()}")
+    print(f"[ok] demo web template: {demo_web_template_path.resolve()}")
 
     if not args.build:
         print("[skip] Docker build disabled.")
