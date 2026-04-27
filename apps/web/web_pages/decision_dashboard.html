@@ -378,7 +378,7 @@
     </div>
 
     <h1>Weekly Spray Strategy Demo</h1>
-    <div class="subtitle">调用 <code>/decision/weekly</code>，输出 scope、water、product_kg 和 spray_l。</div>
+    <div class="subtitle">调用 <code>/decision/weekly</code>，输出喷药范围、g/ml 用量和 Hunter MP1000 喷头开启时间。</div>
 
     <!-- Weekly decision input form -->
     <div class="grid">
@@ -392,8 +392,8 @@
         <input id="aphidCount" type="number" step="1" min="0" value="18" />
       </div>
       <div class="field">
-        <label for="fieldArea">field_area_ha（地块面积，公顷）</label>
-        <input id="fieldArea" type="number" step="0.1" min="0.1" value="2.0" />
+        <label for="fieldArea">field_area_ha（地块面积，公顷；0.8 m² = 0.00008 ha）</label>
+        <input id="fieldArea" type="number" step="0.00001" min="0.00001" value="0.00008" />
       </div>
       <div class="field">
         <label for="exposureDays">exposure_days（暴露天数）</label>
@@ -464,11 +464,11 @@
         <div class="card-value" id="scopeName">-</div>
       </div>
       <div class="card">
-        <div class="card-label">product_kg（药剂总量，kg）</div>
+        <div class="card-label">product（药剂总量，小面积优先显示 g）</div>
         <div class="card-value" id="productKg">-</div>
       </div>
       <div class="card">
-        <div class="card-label">spray_l（喷液总量，L）</div>
+        <div class="card-label">spray（喷液总量，小面积优先显示 ml）</div>
         <div class="card-value" id="sprayL">-</div>
       </div>
     </div>
@@ -483,6 +483,10 @@
         <div class="card-label">treated_fraction（处理面积比例）</div>
         <div class="card-value" id="treatedFraction">-</div>
       </div>
+      <div class="card">
+        <div class="card-label">nozzle_runtime（Hunter MP1000，秒）</div>
+        <div class="card-value" id="nozzleRuntime">-</div>
+      </div>
       <div class="card" style="grid-column: span 2;">
         <div class="card-label">gate_reason（门控原因）</div>
         <div class="card-value" id="gateReason" style="font-size: 16px; line-height: 1.35;">-</div>
@@ -495,7 +499,8 @@
       <strong>策略逻辑说明：</strong>
       模型先根据黄板诱捕强度、趋势和天气给出喷施范围（不喷/边界带/全田），再由合规门控检查是否在可施药窗口且次数未超限；
       若不满足合规条件会强制为不喷。最终“喷多少”不是自由回归，而是按固定剂量和范围比例计算：`product_kg = rate * area * treated_fraction`，
-      喷液量按水量档位计算：`spray_l = water_l_ha * area * treated_fraction`。
+      喷液量按水量档位计算：`spray_l = water_l_ha * area * treated_fraction`。当前演示默认按 0.8 平方米计算，即 `field_area_ha = 0.00008`。
+      Hunter MP1000 喷头默认按 90°、40 PSI、0.21 GPM 换算运行时间。
     </div>
   </div>
 
@@ -534,6 +539,7 @@
     const sprayLEl = document.getElementById("sprayL");
     const waterLhaEl = document.getElementById("waterLha");
     const treatedFractionEl = document.getElementById("treatedFraction");
+    const nozzleRuntimeEl = document.getElementById("nozzleRuntime");
     const gateReasonEl = document.getElementById("gateReason");
     const API_BASE_STORAGE_KEY = "aphidApiBaseUrl";
 
@@ -601,14 +607,38 @@
       return value;
     }
 
+    function formatProduct(data) {
+      const grams = Number(data.product_g);
+      const kg = Number(data.product_kg);
+      if (Number.isFinite(grams) && grams < 1000) return `${grams.toFixed(3)} g`;
+      if (Number.isFinite(kg)) return `${kg.toFixed(6)} kg`;
+      return "-";
+    }
+
+    function formatSpray(data) {
+      const ml = Number(data.spray_ml);
+      const l = Number(data.spray_l);
+      if (Number.isFinite(ml) && ml < 1000) return `${ml.toFixed(1)} ml`;
+      if (Number.isFinite(l)) return `${l.toFixed(2)} L`;
+      return "-";
+    }
+
+    function formatNozzleRuntime(data) {
+      const sec = Number(data?.nozzle?.runtime_sec ?? data?.nozzle_runtime_sec);
+      if (!Number.isFinite(sec)) return "-";
+      if (sec > 0 && sec < 1) return `${sec.toFixed(2)} s (~1s pulse)`;
+      return `${sec.toFixed(sec < 10 ? 1 : 0)} s`;
+    }
+
     // Push response fields into summary cards.
     function fillSummary(data) {
       scopeClassEl.textContent = data.scope_class ?? "-";
       scopeNameEl.textContent = data.scope_name ?? "-";
-      productKgEl.textContent = data.product_kg ?? "-";
-      sprayLEl.textContent = data.spray_l ?? "-";
+      productKgEl.textContent = formatProduct(data);
+      sprayLEl.textContent = formatSpray(data);
       waterLhaEl.textContent = data.water_l_ha ?? "-";
       treatedFractionEl.textContent = data.treated_fraction ?? "-";
+      nozzleRuntimeEl.textContent = formatNozzleRuntime(data);
       gateReasonEl.textContent = (data.compliance && data.compliance.gate_reason) ? data.compliance.gate_reason : "-";
     }
 
@@ -661,7 +691,7 @@
     // Demo sample preset for quick testing.
     sampleBtn.addEventListener("click", () => {
       aphidCountInput.value = "45";
-      fieldAreaInput.value = "3.5";
+      fieldAreaInput.value = "0.00008";
       exposureDaysInput.value = "7";
       weekStartInput.value = "2026-06-15";
       prevCatchRateInput.value = "2.2";
@@ -672,7 +702,7 @@
       inWindowInput.value = "1";
       appsSoFarInput.value = "0";
       respectGateInput.checked = true;
-      setStatus("Loaded a high-risk sample input.");
+      setStatus("Loaded a 0.8 m² high-risk sample input.");
     });
 
     // Decision flow: POST payload and render outputs.

@@ -84,8 +84,12 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 ```bash
 curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainerapps.io/decision/weekly" \
   -H "Content-Type: application/json" \
-  -d '{"aphid_count":18,"field_area_ha":2.0,"exposure_days":7,"t_mean":16.4,"rh_mean":72,"apps_so_far":0}'
+  -d '{"aphid_count":18,"field_area_ha":0.00008,"exposure_days":7,"t_mean":16.4,"rh_mean":72,"apps_so_far":0}'
 ```
+
+面积单位说明：`field_area_ha=0.00008` 表示 0.8 平方米。演示时不要再用 `2.0 ha`，否则喷药量会按 20,000 平方米计算。
+
+喷头说明：当前后端按 Hunter MP1000 Rotator Nozzle 的演示规格换算，默认 `90° arc + 40 PSI + 0.21 GPM`，约 `13.25 ml/s`。喷药接口会返回 `nozzle.runtime_sec`，硬件演示时可以把它理解为喷头开启时间；0.8 平方米高风险全区喷施大约是 `40 ml / 3.0 s`，更适合录制。
 
 自动预测：
 
@@ -100,7 +104,7 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 - 图片上传后能显示 aphid 数量、slug 数量、总数量。
 - 如果接口返回 `detections`，页面能画出检测框或至少展示检测列表。
 - 趋势页面用 `aphid_count` 做主趋势，不用 `total_count` 触发喷药判断。
-- 决策页面能展示 `scope_name`、`should_spray`、`product_kg`、`spray_l`。
+- 决策页面能展示 `scope_name`、`should_spray`、`product_kg` / `product_g`、`spray_l` / `spray_ml`、`nozzle.runtime_sec`。
 - 页面不要硬编码旧 Azure URL，优先用当前线上 API base URL，或用 `location.origin`。
 
 ---
@@ -133,6 +137,10 @@ curl "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azurecontainera
 | `lux_avg` | 光照平均值 | 建议 |
 | `lux_valid` | 光照是否有效，0/1 | 建议 |
 | `env_valid` | 环境传感器是否有效，0/1 | 建议 |
+| `liquid_configured` | 液体传感器是否配置，0/1 | 建议 |
+| `liquid_valid` | 液体传感器是否有效，0/1 | 建议 |
+| `liquid_raw` | 液体传感器原始值，例如 -1/0/1 | 建议 |
+| `liquid_has_liquid` | 是否检测到液体，0/1 | 建议 |
 | `soil_valid` | 土壤传感器是否有效，0/1 | 建议 |
 | `soil_raw` | 土壤原始值 | 建议 |
 | `soil_moisture_pct` | 土壤湿度百分比 | 建议 |
@@ -153,6 +161,10 @@ curl -X POST "https://aca-aphid-yolo.salmonforest-9615860e.swedencentral.azureco
     "lux_avg": 320.5,
     "lux_valid": 1,
     "env_valid": 1,
+    "liquid_configured": 1,
+    "liquid_valid": 1,
+    "liquid_raw": 1,
+    "liquid_has_liquid": 1,
     "soil_valid": 1,
     "soil_raw": 790,
     "soil_moisture_pct": 12.0,
@@ -277,4 +289,3 @@ GET /grafana/decisionhistory?device_id=demo-trap-001&limit=20
 - Grafana 中文快速说明：`docs/GRAFANA_API_DATASOURCE_QUICKSTART_CN.md`
 - 树莓派上传说明：`docs/RASPBERRY_PI_TELEMETRY_UPLOAD_GUIDE_CN.md`
 - 当前系统状态：`docs/CURRENT_SYSTEM_STATUS_AND_TESTING_CN.md`
-

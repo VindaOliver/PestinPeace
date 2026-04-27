@@ -20,9 +20,15 @@ This is the central list of server environment variables used by `apps/api/conta
 | `TEPP_DEMO_MODEL_PATH` | `model/tepp_demo_scope_model.pkl` | Spray decision model |
 | `TEPP_DEMO_META_PATH` | `model/tepp_demo_meta.json` | Spray decision metadata |
 | `TEPP_DEFAULT_RATE_KG_HA` | `0.14` | Default product rate |
+| `SPRAY_NOZZLE_MODEL` | `Hunter MP1000 Rotator Nozzle` | Display name for nozzle conversion |
+| `SPRAY_NOZZLE_ARC_DEG` | `90` | Demo nozzle arc used for runtime conversion |
+| `SPRAY_NOZZLE_PRESSURE_PSI` | `40` | Demo nozzle operating pressure |
+| `SPRAY_NOZZLE_FLOW_GPM` | `0.21` | Demo nozzle flow rate; MP1000 90 degree arc at 40 PSI |
 | `APHID_FORECAST_MODEL_PATH` | `model/aphid_forecast_model.pkl` | Forecast model |
 | `APHID_FORECAST_META_PATH` | `model/aphid_forecast_meta.json` | Forecast model metadata |
 | `DEFAULT_PRESSURE_HPA` | `1013.25` | Fallback pressure value |
+
+If the nozzle arc or pressure is changed on real hardware, update `SPRAY_NOZZLE_FLOW_GPM` from a cup test or the nozzle data sheet. The API uses the flow value directly for `nozzle.runtime_sec`.
 
 ## Azure Storage
 

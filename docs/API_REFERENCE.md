@@ -120,6 +120,10 @@ Main `iottelemetry` fields:
 - `temperature_c`
 - `pressure_hpa`
 - `humidity_pct`
+- `liquid_configured`
+- `liquid_valid`
+- `liquid_raw`
+- `liquid_has_liquid`
 - `soil_valid`
 - `soil_raw`
 - `soil_moisture_pct`
@@ -151,7 +155,11 @@ Main `decisionhistory` fields:
 - `should_spray`
 - `spray_applied`
 - `product_kg`
+- `product_g`
 - `spray_l`
+- `spray_ml`
+- `nozzle_runtime_sec`
+- `nozzle_flow_ml_sec`
 - `reason`
 
 ## Trend
@@ -185,8 +193,10 @@ Example:
 ```bash
 curl -X POST "$BASE_URL/decision/weekly" \
   -H "Content-Type: application/json" \
-  -d '{"aphid_count":18,"field_area_ha":2.0,"exposure_days":7,"t_mean":16.4,"rh_mean":72,"apps_so_far":0}'
+  -d '{"aphid_count":18,"field_area_ha":0.00008,"exposure_days":7,"t_mean":16.4,"rh_mean":72,"apps_so_far":0}'
 ```
+
+Area note: `field_area_ha=0.00008` means `0.8 m²`. This is the current recording-demo scale because it gives about `40 ml` and `3 s` for a full-field spray.
 
 Response includes:
 
@@ -194,8 +204,15 @@ Response includes:
 - `scope_name`
 - `treated_fraction`
 - `product_kg`
+- `product_g`
 - `spray_l`
+- `spray_ml`
+- `nozzle`: Hunter MP1000 nozzle conversion details
+- `nozzle.runtime_sec`: estimated nozzle open time in seconds
+- `nozzle.flow_ml_sec`: default flow conversion, `0.21 GPM ~= 13.25 ml/s`
 - model/fallback source information
+
+Nozzle note: the decision model first calculates the required solution volume (`spray_ml`). The Hunter MP1000 nozzle data is only used to convert that volume into an estimated open time. Current default: MP1000 90 degree arc, 40 PSI, `0.21 GPM`.
 
 ## Decision History
 
@@ -226,3 +243,4 @@ This reads prediction history JSON from Blob storage.
 - `/decision/dashboard`
 - `/forecast/dashboard`
 - `/demo/dashboard`
+- `/demo/dashboard/en`

@@ -48,6 +48,7 @@ jobs:
           cp apps/web/web_pages/decision_dashboard.html apps/api/container/decision_dashboard.html
           cp apps/web/web_pages/forecast_dashboard.html apps/api/container/forecast_dashboard.html
           cp apps/web/web_pages/demo_recording_dashboard.html apps/api/container/demo_recording_dashboard.html
+          cp apps/web/web_pages/demo_recording_dashboard_en.html apps/api/container/demo_recording_dashboard_en.html
 
       - name: Validate docker context files
         shell: bash
@@ -61,6 +62,7 @@ jobs:
           test -f apps/api/container/decision_dashboard.html
           test -f apps/api/container/forecast_dashboard.html
           test -f apps/api/container/demo_recording_dashboard.html
+          test -f apps/api/container/demo_recording_dashboard_en.html
           test -f apps/api/container/model/best.pt
           test -f apps/api/container/model/tepp_demo_scope_model.pkl
           test -f apps/api/container/model/tepp_demo_meta.json

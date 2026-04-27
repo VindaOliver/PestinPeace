@@ -77,7 +77,7 @@ curl -X POST "https://<your-app>/decision/weekly" \
   -H "Content-Type: application/json" \
   -d "{
     \"aphid_count\": 18,
-    \"field_area_ha\": 2.0,
+    \"field_area_ha\": 0.00008,
     \"exposure_days\": 7,
     \"week_start\": \"2026-03-02\",
     \"prev_catch_rate\": 1.4,
@@ -98,6 +98,8 @@ curl -X POST "https://<your-app>/decision/weekly" \
 2. 计算关系
 - `product_kg = tepp_rate_kg_ha * field_area_ha * treated_fraction`
 - `spray_l = water_l_ha * field_area_ha * treated_fraction`
+- 演示口径按 0.8 平方米计算：`field_area_ha = 0.00008`。小面积展示时优先看 `product_g` 和 `spray_ml`；高风险全区喷施约 `40 ml / 3.0 s`。
+- 喷头时间按 Hunter MP1000 默认规格换算：`90° arc + 40 PSI + 0.21 GPM ~= 13.25 ml/s`，即 `nozzle.runtime_sec = spray_ml / nozzle.flow_ml_sec`。
 
 3. 合规门控
 - 若窗口外或 `apps_so_far >= 1`，且 `respect_compliance_gate=true`，会强制输出 `scope_class=0`。

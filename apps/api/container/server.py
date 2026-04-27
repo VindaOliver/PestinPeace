@@ -50,6 +50,11 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "50000000"))
 TEPP_DEMO_MODEL_PATH = os.getenv("TEPP_DEMO_MODEL_PATH", str(APP_DIR / "model" / "tepp_demo_scope_model.pkl"))
 TEPP_DEMO_META_PATH = os.getenv("TEPP_DEMO_META_PATH", str(APP_DIR / "model" / "tepp_demo_meta.json"))
 TEPP_DEFAULT_RATE_KG_HA = float(os.getenv("TEPP_DEFAULT_RATE_KG_HA", "0.14"))
+SPRAY_NOZZLE_MODEL = os.getenv("SPRAY_NOZZLE_MODEL", "Hunter MP1000 Rotator Nozzle")
+SPRAY_NOZZLE_ARC_DEG = float(os.getenv("SPRAY_NOZZLE_ARC_DEG", "90"))
+SPRAY_NOZZLE_PRESSURE_PSI = float(os.getenv("SPRAY_NOZZLE_PRESSURE_PSI", "40"))
+SPRAY_NOZZLE_FLOW_GPM = float(os.getenv("SPRAY_NOZZLE_FLOW_GPM", "0.21"))
+US_GALLON_TO_ML = 3785.411784
 APHID_FORECAST_MODEL_PATH = os.getenv("APHID_FORECAST_MODEL_PATH", str(APP_DIR / "model" / "aphid_forecast_model.pkl"))
 APHID_FORECAST_META_PATH = os.getenv("APHID_FORECAST_META_PATH", str(APP_DIR / "model" / "aphid_forecast_meta.json"))
 DEFAULT_PRESSURE_HPA = float(os.getenv("DEFAULT_PRESSURE_HPA", "1013.25"))
@@ -69,6 +74,7 @@ HISTORY_DASHBOARD_PATH = os.getenv("HISTORY_DASHBOARD_PATH", str(APP_DIR / "hist
 DECISION_DASHBOARD_PATH = os.getenv("DECISION_DASHBOARD_PATH", str(APP_DIR / "decision_dashboard.html"))
 FORECAST_DASHBOARD_PATH = os.getenv("FORECAST_DASHBOARD_PATH", str(APP_DIR / "forecast_dashboard.html"))
 DEMO_DASHBOARD_PATH = os.getenv("DEMO_DASHBOARD_PATH", str(APP_DIR / "demo_recording_dashboard.html"))
+DEMO_DASHBOARD_EN_PATH = os.getenv("DEMO_DASHBOARD_EN_PATH", str(APP_DIR / "demo_recording_dashboard_en.html"))
 OPEN_METEO_FORECAST_URL = os.getenv("OPEN_METEO_FORECAST_URL", "https://api.open-meteo.com/v1/forecast")
 FORECAST_LOCATION_NAME = os.getenv("FORECAST_LOCATION_NAME", "London")
 FORECAST_LATITUDE = float(os.getenv("FORECAST_LATITUDE", "51.5072"))
@@ -200,6 +206,10 @@ class TelemetryIn(BaseModel):
     env_valid: int | None = Field(default=None, ge=0, le=1)
     temperature_c: float | None = None
     humidity_pct: float | None = None
+    liquid_configured: int | None = Field(default=None, ge=0, le=1)
+    liquid_valid: int | None = Field(default=None, ge=0, le=1)
+    liquid_raw: int | None = None
+    liquid_has_liquid: int | None = Field(default=None, ge=0, le=1)
     soil_valid: int | None = Field(default=None, ge=0, le=1)
     soil_raw: int | None = None
     soil_moisture_pct: float | None = None
@@ -220,7 +230,11 @@ class DecisionHistoryIn(BaseModel):
     should_spray: bool | None = None
     spray_applied: bool | None = None
     product_kg: float | None = Field(default=None, ge=0)
+    product_g: float | None = Field(default=None, ge=0)
     spray_l: float | None = Field(default=None, ge=0)
+    spray_ml: float | None = Field(default=None, ge=0)
+    nozzle_runtime_sec: float | None = Field(default=None, ge=0)
+    nozzle_flow_ml_sec: float | None = Field(default=None, ge=0)
     source: str = Field(default="manual", min_length=1, max_length=64)
     reason: str | None = Field(default=None, max_length=512)
     notes: str | None = Field(default=None, max_length=1024)
@@ -711,6 +725,10 @@ def _serialize_telemetry_row(row: dict[str, Any]) -> dict[str, Any]:
         "lux_avg": row.get("lux_avg", row.get("light")),
         "lux_valid": row.get("lux_valid"),
         "env_valid": row.get("env_valid"),
+        "liquid_configured": row.get("liquid_configured"),
+        "liquid_valid": row.get("liquid_valid"),
+        "liquid_raw": row.get("liquid_raw"),
+        "liquid_has_liquid": row.get("liquid_has_liquid"),
         "soil_valid": row.get("soil_valid"),
         "soil_raw": row.get("soil_raw"),
         "soil_moisture_pct": row.get("soil_moisture_pct"),
@@ -876,7 +894,11 @@ def _serialize_decision_history_row(row: dict[str, Any]) -> dict[str, Any]:
         "should_spray": bool(should_spray) if should_spray is not None else scope_class > 0,
         "spray_applied": bool(spray_applied) if spray_applied is not None else False,
         "product_kg": row.get("product_kg"),
+        "product_g": row.get("product_g"),
         "spray_l": row.get("spray_l"),
+        "spray_ml": row.get("spray_ml"),
+        "nozzle_runtime_sec": row.get("nozzle_runtime_sec"),
+        "nozzle_flow_ml_sec": row.get("nozzle_flow_ml_sec"),
         "source": row.get("source"),
         "reason": row.get("reason"),
         "notes": row.get("notes"),
@@ -1824,6 +1846,10 @@ def upload_telemetry(
         "lux_avg": light_value,
         "lux_valid": payload.lux_valid,
         "env_valid": payload.env_valid,
+        "liquid_configured": payload.liquid_configured,
+        "liquid_valid": payload.liquid_valid,
+        "liquid_raw": payload.liquid_raw,
+        "liquid_has_liquid": payload.liquid_has_liquid,
         "soil_valid": payload.soil_valid,
         "soil_raw": payload.soil_raw,
         "soil_moisture_pct": payload.soil_moisture_pct,
@@ -2047,7 +2073,11 @@ def upload_decision_history(
         "should_spray": should_spray,
         "spray_applied": spray_applied,
         "product_kg": payload.product_kg,
+        "product_g": payload.product_g,
         "spray_l": payload.spray_l,
+        "spray_ml": payload.spray_ml,
+        "nozzle_runtime_sec": payload.nozzle_runtime_sec,
+        "nozzle_flow_ml_sec": payload.nozzle_flow_ml_sec,
         "source": payload.source,
         "reason": payload.reason,
         "notes": payload.notes,
@@ -2068,6 +2098,12 @@ def upload_decision_history(
         "scope_name": scope_name,
         "should_spray": should_spray,
         "spray_applied": spray_applied,
+        "product_kg": payload.product_kg,
+        "product_g": payload.product_g,
+        "spray_l": payload.spray_l,
+        "spray_ml": payload.spray_ml,
+        "nozzle_runtime_sec": payload.nozzle_runtime_sec,
+        "nozzle_flow_ml_sec": payload.nozzle_flow_ml_sec,
     }
 
 
@@ -2183,6 +2219,12 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
     water_l_ha = int(tepp_water_by_scope.get(scope_class, 0))
     product_kg = float(tepp_rate_kg_ha * payload.field_area_ha * treated_fraction)
     spray_l = float(water_l_ha * payload.field_area_ha * treated_fraction)
+    product_g = product_kg * 1000.0
+    spray_ml = spray_l * 1000.0
+    nozzle_flow_ml_min = max(0.0, SPRAY_NOZZLE_FLOW_GPM * US_GALLON_TO_ML)
+    nozzle_flow_ml_sec = nozzle_flow_ml_min / 60.0 if nozzle_flow_ml_min > 0 else 0.0
+    nozzle_runtime_sec = spray_ml / nozzle_flow_ml_sec if nozzle_flow_ml_sec > 0 else 0.0
+    nozzle_min_practical_pulse_sec = 1.0
 
     response: dict[str, Any] = {
         "scope_class": scope_class,
@@ -2190,8 +2232,22 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
         "should_spray": scope_class > 0,
         "treated_fraction": treated_fraction,
         "water_l_ha": water_l_ha,
-        "product_kg": round(product_kg, 4),
+        "product_kg": round(product_kg, 6),
+        "product_g": round(product_g, 3),
         "spray_l": round(spray_l, 2),
+        "spray_ml": round(spray_ml, 1),
+        "nozzle": {
+            "model": SPRAY_NOZZLE_MODEL,
+            "arc_deg": SPRAY_NOZZLE_ARC_DEG,
+            "pressure_psi": SPRAY_NOZZLE_PRESSURE_PSI,
+            "flow_gpm": SPRAY_NOZZLE_FLOW_GPM,
+            "flow_ml_min": round(nozzle_flow_ml_min, 1),
+            "flow_ml_sec": round(nozzle_flow_ml_sec, 2),
+            "runtime_sec": round(nozzle_runtime_sec, 2),
+            "min_practical_pulse_sec": nozzle_min_practical_pulse_sec,
+            "one_second_output_ml": round(nozzle_flow_ml_sec * nozzle_min_practical_pulse_sec, 1),
+            "source": "Hunter MP1000 performance data: 90 degree arc at 40 PSI = 0.21 GPM by default.",
+        },
         "inputs": {
             "aphid_count": payload.aphid_count,
             "field_area_ha": payload.field_area_ha,
@@ -2229,8 +2285,12 @@ def weekly_scope_decision(payload: WeeklyScopeDecisionIn) -> dict[str, Any]:
             "scope_name": _scope_name(scope_class),
             "should_spray": scope_class > 0,
             "spray_applied": scope_class > 0,
-            "product_kg": round(product_kg, 4),
+            "product_kg": round(product_kg, 6),
+            "product_g": round(product_g, 3),
             "spray_l": round(spray_l, 2),
+            "spray_ml": round(spray_ml, 1),
+            "nozzle_runtime_sec": round(nozzle_runtime_sec, 2),
+            "nozzle_flow_ml_sec": round(nozzle_flow_ml_sec, 2),
             "source": "weekly_scope_decision",
         },
     }
@@ -2442,3 +2502,12 @@ def demo_dashboard() -> FileResponse:
     if not os.path.exists(DEMO_DASHBOARD_PATH):
         raise HTTPException(status_code=404, detail="Dashboard not found in container image.")
     return FileResponse(DEMO_DASHBOARD_PATH)
+
+
+@app.get("/demo/dashboard/en")
+def demo_dashboard_en() -> FileResponse:
+    """Serve the English video-recording demo control dashboard bundled in the container image."""
+
+    if not os.path.exists(DEMO_DASHBOARD_EN_PATH):
+        raise HTTPException(status_code=404, detail="English dashboard not found in container image.")
+    return FileResponse(DEMO_DASHBOARD_EN_PATH)

@@ -47,6 +47,8 @@
 - 图片识别可以现场真实上传。
 - 趋势和 Grafana 演示使用 `demo-trap-001` 的完整演示数据。
 - 喷药决策使用页面默认的 `aphid_count=25`，这样稳定触发 `should_spray=true`。
+- 喷药面积使用页面默认的 `field_area_ha=0.00008`，也就是 0.8 平方米，避免演示时出现大田级别的喷药量。
+- 喷头使用 Hunter MP1000 的默认换算：`90° arc + 40 PSI + 0.21 GPM`，约 `13.25 ml/s`。页面会显示 `nozzle.runtime_sec`；0.8 平方米边界喷施约 `8.4 ml / 0.6 s`，高风险全区喷施约 `40 ml / 3.0 s`，录制时推荐展示更容易看清的全区喷施场景。
 
 这不是造假，而是录制一个稳定的端到端演示场景：重点展示系统链路是否打通。
 
@@ -55,6 +57,6 @@
 - `/predict` 返回 `aphid_count`、`slug_count`、`total_count`
 - `/forecast/auto` 返回趋势标签和下一阶段估计数量
 - `/decision/weekly` 返回 `should_spray=true`
+- `/decision/weekly` 返回 `product_g`、`spray_ml` 和 `nozzle.runtime_sec`
 - `/decision/history` 返回最新一次 `spray_applied=true`
 - `/grafana/telemetry`、`/grafana/aphidcounts`、`/grafana/decisionhistory` 都有数据
-

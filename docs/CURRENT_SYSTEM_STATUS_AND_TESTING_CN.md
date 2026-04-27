@@ -55,6 +55,10 @@
 - `temperature_c`
 - `pressure_hpa`
 - `humidity_pct`
+- `liquid_configured`
+- `liquid_valid`
+- `liquid_raw`
+- `liquid_has_liquid`
 - `soil_valid`
 - `soil_raw`
 - `soil_moisture_pct`

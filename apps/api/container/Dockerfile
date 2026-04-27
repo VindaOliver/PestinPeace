@@ -13,6 +13,7 @@ COPY history_records.html /app/history_records.html
 COPY decision_dashboard.html /app/decision_dashboard.html
 COPY forecast_dashboard.html /app/forecast_dashboard.html
 COPY demo_recording_dashboard.html /app/demo_recording_dashboard.html
+COPY demo_recording_dashboard_en.html /app/demo_recording_dashboard_en.html
 COPY model /app/model
 
 EXPOSE 8000

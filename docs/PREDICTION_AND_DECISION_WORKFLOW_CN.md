@@ -567,6 +567,8 @@ spray_l = water_l_ha * field_area_ha * treated_fraction
 
 这个计算不是预测出来的，而是模型先决定“喷到什么等级”，然后再按固定规则换算成剂量和喷液量。
 
+当前演示喷头按 Hunter MP1000 Rotator Nozzle 换算：默认 `90° arc + 40 PSI + 0.21 GPM`，约 `13.25 ml/s`。所以后端还会返回 `nozzle.runtime_sec`，表示为了喷完 `spray_ml` 需要打开喷头多久。这个值只负责硬件动作换算，不会改变喷药决策本身。
+
 ---
 
 ## 5. 树莓派本地版到底做了什么

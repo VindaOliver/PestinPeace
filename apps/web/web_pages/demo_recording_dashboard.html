@@ -296,6 +296,112 @@
       letter-spacing: -0.04em;
     }
 
+    .storyline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .story-step {
+      min-height: 78px;
+      padding: 11px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.58);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .story-step span {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(101, 115, 102, 0.18);
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .story-step.done {
+      color: var(--leaf-dark);
+      border-color: rgba(47, 143, 98, 0.35);
+      background: linear-gradient(180deg, rgba(47, 143, 98, 0.14), rgba(255, 255, 255, 0.68));
+      transform: translateY(-1px);
+    }
+
+    .story-step.done span {
+      color: #fff;
+      background: var(--leaf);
+    }
+
+    .visual-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .chart-panel {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.6);
+      min-width: 0;
+    }
+
+    .chart-panel.wide {
+      grid-column: 1 / -1;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .panel-head h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(101, 115, 102, 0.13);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .pill.good {
+      background: rgba(47, 143, 98, 0.14);
+      color: var(--leaf-dark);
+    }
+
+    .pill.warn {
+      background: rgba(216, 132, 36, 0.14);
+      color: #875116;
+    }
+
+    .pill.bad {
+      background: rgba(185, 58, 50, 0.13);
+      color: var(--red);
+    }
+
     .canvas-wrap {
       position: relative;
       overflow: hidden;
@@ -306,6 +412,186 @@
       display: grid;
       place-items: center;
       margin-bottom: 14px;
+    }
+
+    .gauge-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .gauge {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.56);
+      border: 1px solid rgba(29, 42, 34, 0.08);
+    }
+
+    .gauge-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .gauge-top span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .gauge-top strong {
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+
+    .gauge-track,
+    .bar-track {
+      height: 12px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(29, 42, 34, 0.1);
+    }
+
+    .gauge-fill,
+    .bar-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--leaf), #80c56f);
+      transition: width 0.45s ease;
+    }
+
+    .pest-bars {
+      display: grid;
+      gap: 13px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr) 48px;
+      gap: 10px;
+      align-items: center;
+      font-weight: 800;
+    }
+
+    .bar-label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .bar-value {
+      text-align: right;
+      font-size: 18px;
+      letter-spacing: -0.03em;
+    }
+
+    .trend-wrap {
+      min-height: 260px;
+      display: grid;
+      align-items: center;
+    }
+
+    #trendSvg {
+      width: 100%;
+      height: 240px;
+      overflow: visible;
+    }
+
+    .decision-hero {
+      min-height: 250px;
+      display: grid;
+      gap: 14px;
+      align-content: center;
+      text-align: center;
+    }
+
+    .decision-badge {
+      width: 128px;
+      height: 128px;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      color: #fff;
+      background: linear-gradient(135deg, #717d72, #3f4f44);
+      box-shadow: 0 18px 36px rgba(29, 42, 34, 0.2);
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .decision-badge.yes {
+      background: linear-gradient(135deg, var(--amber), #b85d1b);
+    }
+
+    .decision-badge.no {
+      background: linear-gradient(135deg, var(--leaf), var(--leaf-dark));
+    }
+
+    .decision-details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .detail-tile {
+      border-radius: 16px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(29, 42, 34, 0.08);
+    }
+
+    .detail-tile small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .detail-tile strong {
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .feed-list {
+      display: grid;
+      gap: 8px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .feed-item {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px solid rgba(29, 42, 34, 0.08);
+      font-size: 12px;
+    }
+
+    .feed-item strong {
+      font-size: 13px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .debug-details {
+      margin-top: 12px;
+    }
+
+    .debug-details summary {
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--muted);
+      padding: 10px 0;
     }
 
     canvas {
@@ -347,11 +633,13 @@
     @media (max-width: 1040px) {
       .hero,
       .grid,
-      .split {
+      .split,
+      .visual-grid {
         grid-template-columns: 1fr;
       }
 
-      .cards {
+      .cards,
+      .storyline {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -363,7 +651,10 @@
 
       .row,
       .row.three,
-      .cards {
+      .cards,
+      .storyline,
+      .gauge-grid,
+      .decision-details {
         grid-template-columns: 1fr;
       }
     }
@@ -435,6 +726,14 @@
             <div><label>土壤湿度</label><input id="soil" type="number" value="12.0" step="0.1" /></div>
             <div><label>计划拍照</label><input id="shots" type="number" value="1" min="1" max="5" /></div>
           </div>
+          <div class="row three">
+            <div><label>液体已配置</label><input id="liquidConfigured" type="number" value="1" min="0" max="1" /></div>
+            <div><label>液体传感器有效</label><input id="liquidValid" type="number" value="1" min="0" max="1" /></div>
+            <div><label>是否有液体</label><input id="liquidHasLiquid" type="number" value="1" min="0" max="1" /></div>
+          </div>
+          <div class="row">
+            <div><label>液体原始值</label><input id="liquidRaw" type="number" value="1" step="1" /></div>
+          </div>
           <button class="btn" id="telemetryBtn">上传 telemetry</button>
           <div class="status" id="telemetryStatus">未上传</div>
         </div>
@@ -463,7 +762,7 @@
           <p>为保证录制稳定，默认使用高虫量和允许用药窗口，确保能出现“建议喷药”。</p>
           <div class="row three">
             <div><label>演示 aphid_count</label><input id="decisionAphids" type="number" value="25" min="0" /></div>
-            <div><label>面积 ha</label><input id="fieldArea" type="number" value="2.0" step="0.1" min="0.1" /></div>
+            <div><label>面积 ha（0.8 m²=0.00008）</label><input id="fieldArea" type="number" value="0.00008" step="0.00001" min="0.00001" /></div>
             <div><label>暴露天数</label><input id="exposureDays" type="number" value="7" min="1" max="14" /></div>
           </div>
           <button class="btn amber" id="decisionBtn">计算喷药建议</button>
@@ -498,20 +797,128 @@
           <div class="metric"><small>spray decision</small><strong id="sprayMetric">-</strong></div>
         </div>
 
-        <div class="canvas-wrap">
-          <canvas id="previewCanvas"></canvas>
-          <span id="canvasHint">选择图片后，这里会显示检测框</span>
+        <div class="storyline">
+          <div class="story-step" id="storyHealth"><span>1</span>服务就绪</div>
+          <div class="story-step" id="storyTelemetry"><span>2</span>传感器入库</div>
+          <div class="story-step" id="storyPredict"><span>3</span>图片识别</div>
+          <div class="story-step" id="storyTrend"><span>4</span>趋势预测</div>
+          <div class="story-step" id="storyDecision"><span>5</span>喷药建议</div>
+          <div class="story-step" id="storyHistory"><span>6</span>决策留痕</div>
         </div>
 
-        <div class="split">
-          <div>
-            <h3 class="section-title">关键结果</h3>
-            <pre id="summaryOutput">等待操作...</pre>
+        <div class="visual-grid">
+          <div class="chart-panel wide">
+            <div class="panel-head">
+              <h3>1. 图片识别画面</h3>
+              <span class="pill" id="imageStatusPill">等待上传图片</span>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="previewCanvas"></canvas>
+              <span id="canvasHint">选择图片后，这里会显示检测框</span>
+            </div>
           </div>
-          <div>
-            <h3 class="section-title">原始 JSON</h3>
+
+          <div class="chart-panel">
+            <div class="panel-head">
+              <h3>2. 环境传感器</h3>
+              <span class="pill" id="telemetryPill">等待 telemetry</span>
+            </div>
+            <div class="gauge-grid">
+              <div class="gauge">
+                <div class="gauge-top"><span>温度</span><strong id="tempValue">-</strong></div>
+                <div class="gauge-track"><div class="gauge-fill" id="tempGauge"></div></div>
+              </div>
+              <div class="gauge">
+                <div class="gauge-top"><span>湿度</span><strong id="humidityValue">-</strong></div>
+                <div class="gauge-track"><div class="gauge-fill" id="humidityGauge"></div></div>
+              </div>
+              <div class="gauge">
+                <div class="gauge-top"><span>气压</span><strong id="pressureValue">-</strong></div>
+                <div class="gauge-track"><div class="gauge-fill" id="pressureGauge"></div></div>
+              </div>
+              <div class="gauge">
+                <div class="gauge-top"><span>土壤湿度</span><strong id="soilValue">-</strong></div>
+                <div class="gauge-track"><div class="gauge-fill" id="soilGauge"></div></div>
+              </div>
+              <div class="gauge">
+                <div class="gauge-top"><span>液体状态</span><strong id="liquidValue">-</strong></div>
+                <div class="gauge-track"><div class="gauge-fill" id="liquidGauge"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-panel">
+            <div class="panel-head">
+              <h3>3. 虫量统计</h3>
+              <span class="pill" id="pestPill">等待识别</span>
+            </div>
+            <div class="pest-bars">
+              <div class="bar-row">
+                <span class="bar-label">aphid</span>
+                <div class="bar-track"><div class="bar-fill" id="aphidBar"></div></div>
+                <span class="bar-value" id="aphidBarValue">0</span>
+              </div>
+              <div class="bar-row">
+                <span class="bar-label">slug</span>
+                <div class="bar-track"><div class="bar-fill" id="slugBar"></div></div>
+                <span class="bar-value" id="slugBarValue">0</span>
+              </div>
+              <div class="bar-row">
+                <span class="bar-label">total</span>
+                <div class="bar-track"><div class="bar-fill" id="totalBar"></div></div>
+                <span class="bar-value" id="totalBarValue">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-panel">
+            <div class="panel-head">
+              <h3>4. 虫压趋势</h3>
+              <span class="pill" id="trendPill">等待趋势</span>
+            </div>
+            <div class="trend-wrap">
+              <svg id="trendSvg" viewBox="0 0 640 240" role="img" aria-label="aphid trend chart">
+                <text x="320" y="124" text-anchor="middle" fill="#657366" font-size="18" font-weight="700">等待 trend / forecast 数据</text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="chart-panel">
+            <div class="panel-head">
+              <h3>5. 喷药决策</h3>
+              <span class="pill" id="decisionPill">等待决策</span>
+            </div>
+            <div class="decision-hero">
+              <div class="decision-badge" id="decisionBadge">-</div>
+              <div class="decision-details">
+                <div class="detail-tile"><small>范围</small><strong id="scopeValue">-</strong></div>
+                <div class="detail-tile"><small>处理比例</small><strong id="fractionValue">-</strong></div>
+                <div class="detail-tile"><small>药剂</small><strong id="productValue">-</strong></div>
+                <div class="detail-tile"><small>用水</small><strong id="sprayValue">-</strong></div>
+                <div class="detail-tile"><small>喷头时间</small><strong id="runtimeValue">-</strong></div>
+                <div class="detail-tile"><small>喷头流量</small><strong id="flowValue">-</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-panel wide">
+            <div class="panel-head">
+              <h3>6. 最新数据流</h3>
+              <span class="pill" id="feedPill">等待刷新</span>
+            </div>
+            <div class="feed-list" id="feedList">
+              <div class="feed-item"><strong>等待数据</strong><span class="muted">点击“刷新 Grafana API 数据”后展示最近记录</span><span>-</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <h3 class="section-title">关键讲解摘要</h3>
+          <pre id="summaryOutput">等待操作...</pre>
+          <details class="debug-details">
+            <summary>展开原始 JSON（调试用，录屏时可以收起）</summary>
             <pre id="jsonOutput">{}</pre>
-          </div>
+          </details>
         </div>
       </section>
     </section>
@@ -647,6 +1054,216 @@
       scriptBox.textContent = `讲解词：${text}`;
     }
 
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function percent(value, min, max) {
+      if (!Number.isFinite(value) || max <= min) return 0;
+      return clamp(((value - min) / (max - min)) * 100, 0, 100);
+    }
+
+    function fmt(value, digits = 1, suffix = "") {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "-";
+      return `${n.toFixed(digits)}${suffix}`;
+    }
+
+    function formatProduct(decision) {
+      const grams = Number(decision?.product_g);
+      const kg = Number(decision?.product_kg);
+      if (Number.isFinite(grams) && grams < 1000) return `${grams.toFixed(3)} g`;
+      if (Number.isFinite(kg)) return `${kg.toFixed(6)} kg`;
+      return "-";
+    }
+
+    function formatSpray(decision) {
+      const ml = Number(decision?.spray_ml);
+      const l = Number(decision?.spray_l);
+      if (Number.isFinite(ml) && ml < 1000) return `${ml.toFixed(1)} ml`;
+      if (Number.isFinite(l)) return `${l.toFixed(2)} L`;
+      return "-";
+    }
+
+    function formatNozzleRuntime(decision) {
+      const sec = Number(decision?.nozzle?.runtime_sec ?? decision?.nozzle_runtime_sec);
+      if (!Number.isFinite(sec)) return "-";
+      if (sec > 0 && sec < 1) return `${sec.toFixed(2)} s (~1s)`;
+      return `${sec.toFixed(sec < 10 ? 1 : 0)} s`;
+    }
+
+    function formatNozzleFlow(decision) {
+      const flow = Number(decision?.nozzle?.flow_ml_sec ?? decision?.nozzle_flow_ml_sec);
+      if (!Number.isFinite(flow)) return "-";
+      return `${flow.toFixed(1)} ml/s`;
+    }
+
+    function setPill(id, text, type = "") {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.className = `pill ${type}`.trim();
+    }
+
+    function markStory(id, done = true) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle("done", done);
+    }
+
+    function setGauge(fillId, valueId, value, min, max, label, color) {
+      const fill = document.getElementById(fillId);
+      const valueEl = document.getElementById(valueId);
+      const numeric = Number(value);
+      if (fill) {
+        fill.style.width = `${percent(numeric, min, max)}%`;
+        if (color) fill.style.background = color;
+      }
+      if (valueEl) valueEl.textContent = Number.isFinite(numeric) ? label(numeric) : "-";
+    }
+
+    function setBar(fillId, valueId, value, max, color) {
+      const fill = document.getElementById(fillId);
+      const valueEl = document.getElementById(valueId);
+      const numeric = Math.max(0, Number(value) || 0);
+      if (fill) {
+        fill.style.width = `${max > 0 ? clamp((numeric / max) * 100, 0, 100) : 0}%`;
+        if (color) fill.style.background = color;
+      }
+      if (valueEl) valueEl.textContent = String(Math.round(numeric));
+    }
+
+    function renderTelemetryVisual(payload) {
+      if (!payload) return;
+      setGauge("tempGauge", "tempValue", payload.temperature_c, 0, 35, (v) => `${v.toFixed(1)}°C`, "linear-gradient(90deg, #3c80af, #e39a34)");
+      setGauge("humidityGauge", "humidityValue", payload.humidity_pct, 0, 100, (v) => `${v.toFixed(1)}%`, "linear-gradient(90deg, #7db7dd, #2f6c99)");
+      setGauge("pressureGauge", "pressureValue", payload.pressure_hpa, 980, 1040, (v) => `${v.toFixed(1)} hPa`, "linear-gradient(90deg, #8ab17d, #2f8f62)");
+      setGauge("soilGauge", "soilValue", payload.soil_moisture_pct, 0, 40, (v) => `${v.toFixed(1)}%`, "linear-gradient(90deg, #d88424, #7a5f2c)");
+      setGauge("liquidGauge", "liquidValue", payload.liquid_has_liquid, 0, 1, (v) => v >= 1 ? "有液体" : "无液体", "linear-gradient(90deg, #3c80af, #2f8f62)");
+      setPill("telemetryPill", `round ${payload.round_id || "uploaded"}`, "good");
+    }
+
+    function renderPestVisual(prediction) {
+      const aphid = Number(prediction?.aphid_count || 0);
+      const slug = Number(prediction?.slug_count || 0);
+      const total = Number(prediction?.total_count || aphid + slug);
+      const max = Math.max(total, aphid, slug, 1);
+      setBar("aphidBar", "aphidBarValue", aphid, max, "linear-gradient(90deg, #2f8f62, #80c56f)");
+      setBar("slugBar", "slugBarValue", slug, max, "linear-gradient(90deg, #d88424, #f1c36d)");
+      setBar("totalBar", "totalBarValue", total, max, "linear-gradient(90deg, #2f6c99, #82c0df)");
+      setPill("pestPill", total > 0 ? `${total} total detections` : "未检测到虫子", total > 0 ? "good" : "warn");
+      setPill("imageStatusPill", prediction ? "已完成识别并画框" : "等待上传图片", prediction ? "good" : "");
+    }
+
+    function svgNode(name, attrs = {}, text = "") {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function renderTrendVisual(trend, forecast) {
+      const svg = document.getElementById("trendSvg");
+      if (!svg) return;
+      svg.replaceChildren();
+      const points = trend?.trend?.points || [];
+      const ma = trend?.trend?.moving_average || [];
+      if (!points.length) {
+        svg.appendChild(svgNode("text", { x: 320, y: 124, "text-anchor": "middle", fill: "#657366", "font-size": 18, "font-weight": 700 }, "没有可展示的趋势点"));
+        setPill("trendPill", "没有趋势数据", "warn");
+        return;
+      }
+
+      const w = 640;
+      const h = 240;
+      const pad = 34;
+      const values = points.map((p) => Number(p.count_avg || 0));
+      const maValues = ma.map((p) => Number(p.count_avg_ma || 0));
+      const allValues = values.concat(maValues).filter(Number.isFinite);
+      const minY = Math.min(0, ...allValues);
+      const maxY = Math.max(1, ...allValues) * 1.12;
+      const xFor = (idx, total) => pad + (total <= 1 ? 0 : (idx / (total - 1)) * (w - pad * 2));
+      const yFor = (value) => h - pad - ((value - minY) / (maxY - minY)) * (h - pad * 2);
+
+      for (let i = 0; i <= 4; i += 1) {
+        const y = pad + (i / 4) * (h - pad * 2);
+        svg.appendChild(svgNode("line", { x1: pad, y1: y, x2: w - pad, y2: y, stroke: "rgba(29,42,34,0.12)", "stroke-width": 1 }));
+      }
+
+      const pathPoints = values.map((v, i) => `${xFor(i, values.length)},${yFor(v)}`).join(" ");
+      svg.appendChild(svgNode("polyline", { points: pathPoints, fill: "none", stroke: "#2f8f62", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+
+      if (maValues.length) {
+        const maPath = maValues.map((v, i) => `${xFor(i, maValues.length)},${yFor(v)}`).join(" ");
+        svg.appendChild(svgNode("polyline", { points: maPath, fill: "none", stroke: "#d88424", "stroke-width": 3, "stroke-dasharray": "8 8", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+      }
+
+      values.forEach((v, i) => {
+        svg.appendChild(svgNode("circle", { cx: xFor(i, values.length), cy: yFor(v), r: 4, fill: "#ffffff", stroke: "#2f8f62", "stroke-width": 3 }));
+      });
+
+      const first = points[0];
+      const last = points[points.length - 1];
+      svg.appendChild(svgNode("text", { x: pad, y: h - 8, fill: "#657366", "font-size": 12, "font-weight": 800 }, first.date || ""));
+      svg.appendChild(svgNode("text", { x: w - pad, y: h - 8, "text-anchor": "end", fill: "#657366", "font-size": 12, "font-weight": 800 }, last.date || ""));
+      svg.appendChild(svgNode("text", { x: pad, y: 20, fill: "#2f8f62", "font-size": 13, "font-weight": 900 }, "aphid daily avg"));
+      svg.appendChild(svgNode("text", { x: pad + 130, y: 20, fill: "#d88424", "font-size": 13, "font-weight": 900 }, "moving average"));
+
+      const trendLabel = trend?.trend?.summary?.trend_label || "-";
+      const forecastLabel = forecast?.trend_label || "-";
+      setPill("trendPill", `history ${trendLabel} / forecast ${forecastLabel}`, trendLabel === "up" ? "warn" : "good");
+    }
+
+    function renderDecisionVisual(decision) {
+      const badge = document.getElementById("decisionBadge");
+      const yes = decision?.should_spray === true;
+      const no = decision?.should_spray === false;
+      if (badge) {
+        badge.textContent = yes ? "SPRAY" : no ? "WAIT" : "-";
+        badge.className = `decision-badge ${yes ? "yes" : no ? "no" : ""}`.trim();
+      }
+      document.getElementById("scopeValue").textContent = decision?.scope_name || "-";
+      document.getElementById("fractionValue").textContent = Number.isFinite(Number(decision?.treated_fraction)) ? `${Math.round(Number(decision.treated_fraction) * 100)}%` : "-";
+      document.getElementById("productValue").textContent = formatProduct(decision);
+      document.getElementById("sprayValue").textContent = formatSpray(decision);
+      document.getElementById("runtimeValue").textContent = formatNozzleRuntime(decision);
+      document.getElementById("flowValue").textContent = formatNozzleFlow(decision);
+      setPill("decisionPill", yes ? "建议喷药" : no ? "暂不喷药" : "等待决策", yes ? "warn" : no ? "good" : "");
+    }
+
+    function addFeedItem(list, type, main, meta, value) {
+      const item = document.createElement("div");
+      item.className = "feed-item";
+      const typeEl = document.createElement("strong");
+      typeEl.textContent = type;
+      const metaEl = document.createElement("span");
+      metaEl.className = "muted";
+      metaEl.textContent = `${main}${meta ? ` · ${meta}` : ""}`;
+      const valueEl = document.createElement("span");
+      valueEl.textContent = value;
+      item.append(typeEl, metaEl, valueEl);
+      list.appendChild(item);
+    }
+
+    function renderFeedVisual(telemetry, counts, decisions) {
+      const list = document.getElementById("feedList");
+      if (!list) return;
+      list.replaceChildren();
+      (telemetry?.items || []).slice(0, 3).forEach((row) => {
+        addFeedItem(list, "telemetry", row.ts_utc || row.ts || "-", `T ${fmt(row.temperature_c, 1, "°C")} / RH ${fmt(row.humidity_pct, 1, "%")}`, fmt(row.pressure_hpa, 1, " hPa"));
+      });
+      (counts?.items || []).slice(0, 3).forEach((row) => {
+        addFeedItem(list, "pest", row.ts_utc || row.ts || "-", `aphid ${row.aphid_count ?? row.count ?? 0} / slug ${row.slug_count ?? 0}`, `total ${row.total_count ?? row.count ?? 0}`);
+      });
+      (decisions?.items || []).slice(0, 3).forEach((row) => {
+        addFeedItem(list, "decision", row.ts_utc || row.ts || "-", row.scope_name || "-", row.spray_applied ? "sprayed" : "not sprayed");
+      });
+      if (!list.children.length) {
+        addFeedItem(list, "empty", "没有返回记录", "请检查 device_id", "-");
+      }
+      setPill("feedPill", `telemetry ${telemetry?.count || 0} / pest ${counts?.count || 0} / decision ${decisions?.count || 0}`, "good");
+    }
+
     function drawPrediction() {
       if (!state.image) return;
       canvasHint.style.display = "none";
@@ -698,6 +1315,7 @@
         const health = await request("/health");
         const ready = await request("/ready");
         setStatus("healthStatus", "服务正常，可以开始录制", "ok");
+        markStory("storyHealth");
         show("服务状态正常", { health, ready }, [
           `model: ${health.model_path || "unknown"}`,
           `telemetry table: ${health.telemetry_table}`,
@@ -721,6 +1339,10 @@
         lux_avg: num("lux"),
         lux_valid: 1,
         env_valid: 1,
+        liquid_configured: num("liquidConfigured"),
+        liquid_valid: num("liquidValid"),
+        liquid_raw: num("liquidRaw"),
+        liquid_has_liquid: num("liquidHasLiquid"),
         soil_valid: 1,
         soil_raw: 790,
         soil_moisture_pct: num("soil"),
@@ -734,11 +1356,14 @@
           body: JSON.stringify(payload),
         });
         setStatus("telemetryStatus", `已上传 round_id=${state.roundId}`, "ok");
+        renderTelemetryVisual(payload);
+        markStory("storyTelemetry");
         show("传感器数据已上传", state.telemetry, [
           `device_id: ${payload.device_id}`,
           `temperature_c: ${payload.temperature_c}`,
           `humidity_pct: ${payload.humidity_pct}`,
           `pressure_hpa: ${payload.pressure_hpa}`,
+          `liquid_has_liquid: ${payload.liquid_has_liquid}`,
           `soil_moisture_pct: ${payload.soil_moisture_pct}`,
         ]);
         setScript("这一轮硬件先上传环境数据，包括温度、湿度、气压、光照和土壤湿度。后面的趋势预测和喷药决策会把这些环境信息作为上下文。");
@@ -755,6 +1380,8 @@
       reader.onload = () => {
         state.image = reader.result;
         state.prediction = null;
+        renderPestVisual(null);
+        setPill("imageStatusPill", "图片已选择，等待识别", "warn");
         drawPrediction();
       };
       reader.readAsDataURL(file);
@@ -782,6 +1409,8 @@
         });
         setStatus("predictStatus", "识别完成，虫量已写入表", "ok");
         updateMetrics();
+        renderPestVisual(state.prediction);
+        markStory("storyPredict");
         drawPrediction();
         show("图片识别完成", state.prediction, [
           `aphid_count: ${state.prediction.aphid_count}`,
@@ -805,6 +1434,8 @@
         state.trend = trend;
         state.forecast = forecast;
         setStatus("trendStatus", "趋势和预测已读取", "ok");
+        renderTrendVisual(trend, forecast);
+        markStory("storyTrend");
         show("趋势与自动预测", { trend, forecast }, [
           `trend_label: ${trend.trend?.summary?.trend_label}`,
           `recent_7d_avg: ${trend.trend?.summary?.recent_7d_avg}`,
@@ -839,6 +1470,8 @@
         document.getElementById("saveDecisionBtn").disabled = false;
         setStatus("saveDecisionStatus", "可以保存到历史", "");
         updateMetrics();
+        renderDecisionVisual(state.decision);
+        markStory("storyDecision");
         show("喷药建议已生成", state.decision, [
           `scope_name: ${state.decision.scope_name}`,
           `should_spray: ${state.decision.should_spray}`,
@@ -877,6 +1510,8 @@
           body: JSON.stringify(payload),
         });
         setStatus("saveDecisionStatus", "已写入 decisionhistory", "ok");
+        markStory("storyHistory");
+        setPill("decisionPill", "决策已保存", "good");
         show("喷药决策历史已保存", state.decisionHistory, [
           `decision_id: ${state.decisionHistory.decision_id}`,
           `should_spray: ${state.decisionHistory.should_spray}`,
@@ -896,6 +1531,7 @@
         const counts = await request(`/grafana/aphidcounts?device_id=${device}&limit=5`);
         const decisions = await request(`/grafana/decisionhistory?device_id=${device}&limit=5`);
         setStatus("refreshStatus", "三张业务数据都可查询", "ok");
+        renderFeedVisual(telemetry, counts, decisions);
         show("Grafana/API 数据已刷新", { telemetry, counts, decisions }, [
           `telemetry rows: ${telemetry.count}`,
           `aphidcount rows: ${counts.count}`,
